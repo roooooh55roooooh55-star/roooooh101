@@ -6,8 +6,12 @@ export default defineConfig({
   plugins: [react()],
   base: './', 
   define: {
-    // هذا السطر يحل مشكلة عدم ظهور المفتاح في المتصفح على Netlify
-    'process.env.API_KEY': JSON.stringify(process.env.API_KEY)
+    // تضمن هذه الخطوة وصول المفاتيح من Netlify إلى الكود الأمامي
+    'process.env.API_KEY': JSON.stringify(process.env.API_KEY),
+    'process.env': {
+      API_KEY: process.env.API_KEY,
+      ...process.env
+    }
   },
   build: {
     outDir: 'dist',

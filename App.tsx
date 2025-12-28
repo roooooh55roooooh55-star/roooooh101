@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import { Video, AppView, UserInteractions } from './types.ts';
 import { fetchChannelVideos } from './telegramClient.ts';
 import { getRecommendedFeed } from './geminiService.ts';
@@ -32,6 +32,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>(AppView.HOME);
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [rawVideos, setRawVideos] = useState<Video[]>([]); 
+  const [displayVideos, setDisplayVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false); 
   const [selectedShort, setSelectedShort] = useState<{ video: Video, list: Video[] } | null>(null);
@@ -59,43 +60,61 @@ const App: React.FC = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const loadData = useCallback(async (isManual = false) => {
-    if (isManual) {
-      setLoading(true);
-      setIsSyncing(true);
-    }
-    
+  /**
+   * دالة المزامنة الصامتة: تبحث عن جديد تليجرام دون التأثير على ما يشاهده المستخدم حالياً
+   */
+  const silentSync = useCallback(async () => {
     try {
       const data = await fetchChannelVideos();
       if (data && data.length > 0) {
         const deletedIds = JSON.parse(localStorage.getItem('al-hadiqa-deleted-ids') || '[]');
         const filtered = data.filter(v => !deletedIds.includes(v.id));
-
-        const recommendedOrder = await getRecommendedFeed(filtered, interactions);
-        const orderedVideos = recommendedOrder
-          .map(id => filtered.find(v => v.id === id))
-          .filter((v): v is Video => !!v);
-
-        const remaining = filtered.filter(v => !recommendedOrder.includes(v.id));
-        setRawVideos([...orderedVideos, ...remaining]);
+        setRawVideos(filtered);
       }
-    } catch (err: any) {
-      console.error("Fetch Error:", err);
-      setSystemErrors(prev => [...prev.slice(-5), `خطأ مزامنة: ${err.message || 'فشل الاتصال'}`]);
-    } finally {
-      setLoading(false);
-      if (isManual) {
-        setTimeout(() => setIsSyncing(false), 2000);
-      }
+    } catch (err) {
+      console.warn("فشل المزامنة الصامتة");
     }
-  }, [interactions]);
+  }, []);
 
+  /**
+   * دالة تحديث واجهة المستخدم: تطلق كل 15 ثانية لتقديم محتوى "طازج" من الأرشيف المتاح
+   */
+  const refreshUI = useCallback(async () => {
+    if (rawVideos.length === 0) return;
+    
+    // نقوم بعمل Shuffle خفيف للمحتوى
+    const shuffled = [...rawVideos].sort(() => Math.random() - 0.5);
+    
+    try {
+      // نطلب من Gemini أفضل ترتيب بناءً على اهتمامات المستخدم
+      const recommendedOrder = await getRecommendedFeed(shuffled, interactions);
+      const orderedVideos = recommendedOrder
+        .map(id => shuffled.find(v => v.id === id))
+        .filter((v): v is Video => !!v);
+      
+      const remaining = shuffled.filter(v => !recommendedOrder.includes(v.id));
+      setDisplayVideos([...orderedVideos, ...remaining]);
+    } catch (e) {
+      setDisplayVideos(shuffled);
+    }
+    setLoading(false);
+  }, [rawVideos, interactions]);
+
+  // المزامنة الصامتة كل 3 ثوانٍ
   useEffect(() => {
-    loadData(true);
-    // تقليل وتيرة التحديث التلقائي لتجنب rate-limiting من تليجرام
-    const syncInterval = setInterval(() => loadData(false), 30000);
-    return () => clearInterval(syncInterval);
-  }, [loadData]);
+    silentSync();
+    const interval = setInterval(silentSync, 3000);
+    return () => clearInterval(interval);
+  }, [silentSync]);
+
+  // تحديث واجهة العرض كل 15 ثانية
+  useEffect(() => {
+    if (rawVideos.length > 0) {
+      refreshUI();
+      const interval = setInterval(refreshUI, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [refreshUI, rawVideos.length]);
 
   useEffect(() => { 
     localStorage.setItem('al-hadiqa-interactions-v7', JSON.stringify(interactions)); 
@@ -134,7 +153,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-black text-white selection:bg-[#ff003c] selection:text-white">
-      <AppBar onViewChange={setCurrentView} onRefresh={() => loadData(true)} currentView={currentView} />
+      <AppBar onViewChange={setCurrentView} onRefresh={refreshUI} currentView={currentView} />
 
       <main className="pt-20 max-w-lg mx-auto overflow-x-hidden">
         {currentView === AppView.ADMIN ? (
@@ -148,7 +167,7 @@ const App: React.FC = () => {
           </Suspense>
         ) : (
           (() => {
-            const activeVideos = rawVideos.filter(v => !interactions.dislikedIds.includes(v.id));
+            const activeVideos = displayVideos.filter(v => !interactions.dislikedIds.includes(v.id));
             const longsOnly = activeVideos.filter(v => v.type === 'long');
 
             switch(currentView) {
@@ -171,7 +190,7 @@ const App: React.FC = () => {
                   <div 
                     onTouchStart={(e) => window.scrollY <= 5 && setStartY(e.touches[0].pageY)}
                     onTouchMove={(e) => startY > 0 && setPullOffset(Math.min(e.touches[0].pageY - startY, 150))}
-                    onTouchEnd={() => { if (pullOffset > 80) loadData(true); setPullOffset(0); setStartY(0); }}
+                    onTouchEnd={() => { if (pullOffset > 80) refreshUI(); setPullOffset(0); setStartY(0); }}
                     className="relative transition-transform duration-200"
                     style={{ transform: `translateY(${pullOffset}px)` }}
                   >
@@ -182,7 +201,7 @@ const App: React.FC = () => {
                       onPlayShort={(v, l) => { setSelectedShort({video:v, list:l.filter(x => x.type === 'short')}); markAsPlayed(v.id); }}
                       onPlayLong={(v, l) => { setSelectedLong({video:v, list:l.filter(x => x.type === 'long')}); markAsPlayed(v.id); }}
                       onCategoryClick={(c: string) => { setActiveCategory(c); setCurrentView(AppView.CATEGORY); }}
-                      onHardRefresh={() => loadData(true)}
+                      onHardRefresh={refreshUI}
                       onOfflineClick={() => setCurrentView(AppView.OFFLINE)}
                       loading={loading}
                       isOverlayActive={isOverlayActive}

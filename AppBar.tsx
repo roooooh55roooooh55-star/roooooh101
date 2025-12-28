@@ -19,7 +19,6 @@ const AppBar: React.FC<AppBarProps> = ({ onViewChange, onRefresh, currentView })
     const activeColor = isSaveBtn ? 'text-[#ffea00]' : defaultColor;
     const activeGlow = isSaveBtn ? '#ffea00' : glowColor;
 
-    // تكبير الأزرار الجانبية قليلاً لتكون واضحة
     return `w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center transition-all duration-300 border active:scale-90 ${
       isActive 
       ? `bg-black/90 ${activeColor} border-current scale-110 z-20 shadow-[0_0_20px_${activeGlow}] ring-1 ring-white/10` 
@@ -28,7 +27,7 @@ const AppBar: React.FC<AppBarProps> = ({ onViewChange, onRefresh, currentView })
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 sm:h-24 bg-black/95 backdrop-blur-3xl z-[150] border-b border-white/10 px-2 sm:px-6 flex items-center justify-between shadow-[0_10px_40px_rgba(0,0,0,0.9)]">
+    <header className="fixed top-0 left-0 right-0 h-16 sm:h-20 bg-black/95 backdrop-blur-3xl z-[150] border-b border-white/10 px-2 sm:px-6 flex items-center justify-between shadow-[0_10px_40px_rgba(0,0,0,0.9)]">
       
       {/* المجموعة اليمنى */}
       <div className="flex items-center gap-2 sm:gap-4">
@@ -54,13 +53,13 @@ const AppBar: React.FC<AppBarProps> = ({ onViewChange, onRefresh, currentView })
         </a>
       </div>
 
-      {/* الزر المركزي - تم تصغيره ليتناسب مع الصورة مع بقائه الأكبر */}
+      {/* الزر المركزي المقلص */}
       <button 
         onClick={() => { onViewChange(AppView.HOME); onRefresh(); }}
         className="relative group active:scale-95 transition-all duration-700 mx-1"
       >
-        <div className="absolute inset-0 bg-red-600 rounded-full blur-2xl opacity-40 group-hover:opacity-100 transition-opacity animate-pulse"></div>
-        <div className="relative z-10 w-14 h-14 sm:w-18 sm:h-18 rounded-full border-[4px] border-red-600 shadow-[0_0_20px_#ff0000] overflow-hidden flex items-center justify-center bg-black transition-transform group-hover:scale-105">
+        <div className="absolute inset-0 bg-red-600 rounded-full blur-xl opacity-30 group-hover:opacity-100 transition-opacity animate-pulse"></div>
+        <div className="relative z-10 w-11 h-11 sm:w-15 sm:h-15 rounded-full border-[3px] border-red-600 shadow-[0_0_15px_#ff0000] overflow-hidden flex items-center justify-center bg-black transition-transform group-hover:scale-105">
           <img src={LOGO_URL} className="w-full h-full object-cover" alt="الحديقة المرعبة" />
         </div>
       </button>
