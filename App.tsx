@@ -57,13 +57,12 @@ const App: React.FC = () => {
   };
 
   const loadData = useCallback(async (isHardRefresh = false) => {
-    if (isHardRefresh) showToast("جاري تحديث المستودع...");
+    if (isHardRefresh) showToast("SYNCING ARCHIVE...");
     setLoading(true);
     
     try {
       const data = await fetchChannelVideos();
       if (data && data.length > 0) {
-        // فلترة الفيديوهات التي تم حذفها يدوياً من قبل الأدمن
         const deletedIds = JSON.parse(localStorage.getItem('al-hadiqa-deleted-ids') || '[]');
         const filtered = data.filter(v => !deletedIds.includes(v.id));
 
@@ -86,7 +85,6 @@ const App: React.FC = () => {
 
   useEffect(() => {
     loadData(false);
-    // تحديث دوري كل 5 دقائق لمواكبة تليجرام
     const syncInterval = setInterval(() => loadData(false), 300000);
     return () => clearInterval(syncInterval);
   }, []);
@@ -101,31 +99,28 @@ const App: React.FC = () => {
       if (isAlreadyLiked) {
         return { ...p, likedIds: p.likedIds.filter(x => x !== id) };
       }
-      // منطق الحصرية: الإعجاب يحذف من الديسلايك
       return { 
         ...p, 
         likedIds: [...p.likedIds, id], 
         dislikedIds: p.dislikedIds.filter(x => x !== id) 
       };
     });
-    showToast("تم الحقن في المفضلة نيون ✨");
+    showToast("PAYLOAD LIKED ✨");
   };
 
   const handleDislike = (id: string) => {
     setInteractions(p => {
-      // منطق الحصرية: الديسلايك يحذف من اللايك ويخفي الفيديو
       return { 
         ...p, 
         dislikedIds: [...new Set([...p.dislikedIds, id])], 
         likedIds: p.likedIds.filter(x => x !== id) 
       };
     });
-    showToast("تم نفي الكابوس ⚰️");
+    showToast("ARCHIVE EXCLUDED ⚰️");
     setSelectedShort(null); setSelectedLong(null);
   };
 
   const renderContent = () => {
-    // استبعاد الفيديوهات المخفية من العرض الرئيسي
     const activeVideos = rawVideos.filter(v => !interactions.dislikedIds.includes(v.id));
     const longsOnly = activeVideos.filter(v => v.type === 'long');
 
@@ -157,7 +152,7 @@ const App: React.FC = () => {
           >
             {pullOffset > 30 && (
               <div className="absolute -top-12 left-0 right-0 flex justify-center items-center">
-                <div className="w-10 h-10 rounded-full border-4 border-red-600 border-t-transparent animate-spin"></div>
+                <div className="w-10 h-10 rounded-full border-4 border-[#00f3ff] border-t-transparent animate-spin shadow-[0_0_15px_#00f3ff]"></div>
               </div>
             )}
             <MainContent 
@@ -179,11 +174,15 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-black text-white selection:bg-[#00f3ff] selection:text-black">
       <AppBar onViewChange={setCurrentView} onRefresh={() => loadData(false)} currentView={currentView} />
       <main className="pt-20 max-w-lg mx-auto overflow-x-hidden">{renderContent()}</main>
       <Suspense fallback={null}><AIOracle /></Suspense>
-      {toast && <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[1100] bg-red-600 px-6 py-2 rounded-full font-black shadow-lg text-xs border border-red-400 animate-in fade-in slide-in-from-top-4">{toast}</div>}
+      {toast && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[1100] bg-[#00f3ff] px-6 py-2 rounded-full font-black shadow-[0_0_20px_#00f3ff] text-black text-[10px] border border-white/20 animate-in fade-in slide-in-from-top-4 tech-font uppercase tracking-widest">
+          {toast}
+        </div>
+      )}
       
       {selectedShort && (
         <Suspense fallback={null}>

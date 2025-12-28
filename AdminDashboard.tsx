@@ -68,13 +68,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleAuth = () => {
     if (passcode === '5030775') setIsAuthenticated(true);
-    else { alert("ACCESS DENIED: Unauthorized biological signature."); setPasscode(''); }
+    else { alert("ACCESS DENIED: DNA mismatch detected."); setPasscode(''); }
   };
 
   const saveSettings = () => {
     localStorage.setItem('admin_eleven_keys_v2', JSON.stringify(elevenKeys));
     localStorage.setItem('admin_voice_id', voiceId);
-    alert('CRYPTO-SEALS UPDATED 💀');
+    alert('SYSTEM UPDATED: API Protocols re-synced.');
     refreshKeyStats();
   };
 
@@ -83,7 +83,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (file) {
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
-      setAiLogs(["[INFO] RAW SAMPLE LOADED.", "[WAIT] INITIALIZING SCAN..."]);
+      setAiLogs(["[INFO] CORE SAMPLE DETECTED.", "[WAIT] INITIALIZING THERMAL SCAN..."]);
       const v = document.createElement('video');
       v.src = URL.createObjectURL(file);
       v.onloadedmetadata = () => { setVideoType(v.videoHeight > v.videoWidth ? 'short' : 'long'); };
@@ -93,7 +93,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const executeAiAnalysis = async () => {
     if (!videoRef.current || !canvasRef.current || !selectedFile) return;
     setIsAnalyzing(true);
-    setAiLogs(prev => [...prev, "[AI] DECRYPTING VIA GEMINI-STREAM...", "[PROCESS] EXTRACTING METADATA..."]);
+    setAiLogs(prev => [...prev, "[AI] INITIATING GEMINI DEEP SCAN...", "[PROCESS] EXTRACTING CONTENT DATA..."]);
     try {
       const canvas = canvasRef.current;
       const video = videoRef.current;
@@ -107,9 +107,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setUploadTitle(result.title);
       setUploadCategory(result.category);
       setUploadNarration(result.narration);
-      setAiLogs(prev => [...prev, "[SUCCESS] ANALYSIS COMPLETE."]);
+      setAiLogs(prev => [...prev, "[SUCCESS] PATTERN RECOGNITION COMPLETE."]);
     } catch (e) {
-      setAiLogs(prev => [...prev, "[ERROR] AI PROTOCOL FAILED."]);
+      setAiLogs(prev => [...prev, "[ERROR] QUANTUM COMPUTE FAILURE."]);
     } finally { setIsAnalyzing(false); }
   };
 
@@ -120,10 +120,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const audioUrl = await generateSpeech(uploadNarration, currentKey, voiceId);
     if (audioUrl) {
       setGeneratedAudio(audioUrl);
-      setAiLogs(prev => [...prev, "[VOICE] NARRATION SYNTHESIZED."]);
+      setAiLogs(prev => [...prev, "[VOICE] NARRATION SYNCED TO CORE."]);
       refreshKeyStats();
     } else {
-      alert('KEY DEPLETED OR INVALID.');
+      alert('KEY CRITICAL: Insufficient power (Characters depleted).');
     }
     setIsGeneratingVoice(false);
   };
@@ -141,11 +141,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }, (p) => setUploadProgress(p));
 
       if (result.ok) {
-        alert("INJECTION SUCCESSFUL 💀");
+        alert("UPLOAD COMPLETE: Payload successfully injected into the void.");
         setPreviewUrl(null); setSelectedFile(null); setUploadNarration(''); setGeneratedAudio(null);
         refreshVault();
       }
-    } catch (e) { alert("INJECTION FAILURE."); }
+    } catch (e) { alert("INJECTION FAILED: Network interference detected."); }
     finally { setIsUploading(false); }
   };
 
@@ -155,7 +155,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const deleteVideoFromVault = (id: string) => {
-    if (!window.confirm("ERASE PERMANENTLY?")) return;
+    if (!window.confirm("PERMANENT DELETION: Are you sure you want to erase this data?")) return;
     const updated = vaultVideos.filter(v => v.id !== id);
     setVaultVideos(updated);
     const deleted = JSON.parse(localStorage.getItem('al-hadiqa-deleted-ids') || '[]');
@@ -165,17 +165,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   if (!isAuthenticated) {
     return (
       <div className="fixed inset-0 z-[1000] bg-black flex flex-col items-center justify-center p-6 tech-font">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(255,0,0,0.15)_0%,_#000000_100%)]"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(0,243,255,0.1)_0%,_#000000_100%)]"></div>
         <div className="relative z-10 space-y-12 text-center">
           <div className="space-y-2">
-            <h2 className="text-5xl font-black text-[#ff003c] italic tracking-tighter drop-shadow-[0_0_30px_#ff003c]">BIO-AUTH</h2>
-            <p className="text-[10px] text-white/40 uppercase tracking-[0.5em]">Gate System Protocol // 5030775</p>
+            <h2 className="text-5xl font-black text-[#00f3ff] italic tracking-tighter drop-shadow-[0_0_30px_#00f3ff]">SYSTEM ACCESS</h2>
+            <p className="text-[10px] text-white/40 uppercase tracking-[0.5em]">Security Gate Protocol // 5030775</p>
           </div>
           <input 
             type="password" value={passcode} onChange={e => setPasscode(e.target.value)} 
-            placeholder="••••••" className="bg-black/80 border-2 border-[#ff003c]/30 p-6 rounded-[2.5rem] text-center w-72 text-[#ff003c] font-black text-4xl outline-none focus:border-[#ff003c] shadow-[inset_0_0_20px_rgba(255,0,0,0.1)] transition-all"
+            placeholder="••••••" className="bg-black/80 border-2 border-[#00f3ff]/30 p-6 rounded-[2.5rem] text-center w-72 text-[#00f3ff] font-black text-4xl outline-none focus:border-[#00f3ff] shadow-[inset_0_0_30px_rgba(0,243,255,0.1)] transition-all"
           />
-          <button onClick={handleAuth} className="w-full bg-[#ff003c] hover:bg-white hover:text-black py-6 rounded-full font-black text-white text-xl shadow-[0_0_50px_rgba(255,0,0,0.6)] active:scale-95 transition-all">TERMINAL LOGIN</button>
+          <button onClick={handleAuth} className="w-full bg-[#00f3ff] hover:bg-white hover:text-black py-6 rounded-full font-black text-white text-xl shadow-[0_0_50px_rgba(0,243,255,0.4)] active:scale-95 transition-all">INITIATE BOOT</button>
         </div>
       </div>
     );
@@ -184,12 +184,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   return (
     <div className="fixed inset-0 z-[900] bg-[#020202] overflow-hidden flex flex-col tech-font" dir="rtl">
       {/* High-Tech Header */}
-      <div className="h-20 border-b border-[#ff003c]/20 flex items-center justify-between px-8 bg-black/90 backdrop-blur-3xl">
+      <div className="h-20 border-b border-[#00f3ff]/20 flex items-center justify-between px-8 bg-black/90 backdrop-blur-3xl shadow-[0_4px_30px_rgba(0,243,255,0.1)]">
         <div className="flex items-center gap-4">
-          <div className="w-3 h-3 bg-[#ff003c] rounded-full animate-ping shadow-[0_0_20px_#ff003c]"></div>
-          <h1 className="text-[12px] font-black text-[#ff003c] uppercase tracking-[0.4em] italic drop-shadow-[0_0_10px_rgba(255,0,0,0.5)]">DEV-TERMINAL v8.1</h1>
+          <div className="w-3 h-3 bg-[#00f3ff] rounded-full animate-ping shadow-[0_0_20px_#00f3ff]"></div>
+          <h1 className="text-[12px] font-black text-[#00f3ff] uppercase tracking-[0.4em] italic drop-shadow-[0_0_10px_rgba(0,243,255,0.5)]">OPERATIONAL PANEL v9.0</h1>
         </div>
-        <button onClick={onClose} className="text-white/40 hover:text-[#ff003c] p-2 transition-colors duration-500">
+        <button onClick={onClose} className="text-white/40 hover:text-[#00f3ff] p-2 transition-colors duration-500">
           <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="3" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
@@ -197,9 +197,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* Cyberpunk Tabs */}
       <div className="flex border-b border-white/5 bg-neutral-900/10">
         {[
-          { id: 'upload', label: 'CORE INJECTION', color: 'text-[#ff003c]', border: 'border-[#ff003c]' },
-          { id: 'settings', label: 'API NODES', color: 'text-[#00f3ff]', border: 'border-[#00f3ff]' },
-          { id: 'list', label: 'LOCAL ARCHIVE', color: 'text-[#ffea00]', border: 'border-[#ffea00]' }
+          { id: 'upload', label: 'DATA INJECTION', color: 'text-[#ff003c]', border: 'border-[#ff003c]' },
+          { id: 'settings', label: 'POWER NODES', color: 'text-[#00f3ff]', border: 'border-[#00f3ff]' },
+          { id: 'list', label: 'VOXEL ARCHIVE', color: 'text-[#ffea00]', border: 'border-[#ffea00]' }
         ].map(tab => (
           <button 
             key={tab.id} onClick={() => setActiveTab(tab.id as any)} 
@@ -214,25 +214,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {activeTab === 'upload' && (
           <div className="space-y-8 max-w-2xl mx-auto">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="aspect-video bg-[#050505] rounded-[2.5rem] border-2 border-dashed border-[#ff003c]/30 flex items-center justify-center relative overflow-hidden group shadow-2xl">
+              <div className="aspect-video bg-[#050505] rounded-[2.5rem] border-2 border-dashed border-[#ff003c]/30 flex items-center justify-center relative overflow-hidden group shadow-[0_0_40px_rgba(255,0,60,0.1)]">
                 {previewUrl ? (
                   <video ref={videoRef} src={previewUrl} className="w-full h-full object-contain" controls />
                 ) : (
                   <label className="cursor-pointer flex flex-col items-center gap-6 text-white/30 hover:text-[#ff003c] transition-all duration-500">
                     <svg className="w-14 h-14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="2.5" d="M12 4v16m8-8H4"/></svg>
-                    <span className="text-[10px] font-black uppercase tracking-widest">SELECT PAYLOAD</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">UPLOAD PAYLOAD</span>
                     <input type="file" className="hidden" accept="video/*" onChange={onFileChange} />
                   </label>
                 )}
               </div>
               <div className="bg-black/60 p-6 rounded-[2.5rem] border border-white/10 flex flex-col shadow-2xl">
-                <h3 className="text-[10px] font-black text-[#ff003c] mb-6 uppercase italic tracking-[0.2em]">ANALYSIS STREAM</h3>
+                <h3 className="text-[10px] font-black text-[#ff003c] mb-6 uppercase italic tracking-[0.2em]">LIVE LOG STREAM</h3>
                 <div className="flex-1 h-32 overflow-y-auto text-[10px] text-[#ff003c]/80 font-mono space-y-2 leading-relaxed">
-                  {aiLogs.map((log, i) => <div key={i} className="border-l-2 border-[#ff003c]/20 pl-3">>> {log}</div>)}
+                  {/* FIX: Escaping the ">>" symbol for Netlify Build safety */}
+                  {aiLogs.map((log, i) => <div key={i} className="border-l-2 border-[#ff003c]/20 pl-3">{" >> "} {log}</div>)}
                 </div>
                 {previewUrl && !analysisResult && (
-                  <button onClick={executeAiAnalysis} disabled={isAnalyzing} className="w-full bg-[#ff003c]/10 py-4 rounded-2xl text-[10px] font-black mt-6 border-2 border-[#ff003c]/30 text-[#ff003c] hover:bg-[#ff003c] hover:text-white shadow-[0_0_20px_rgba(255,0,0,0.1)] transition-all">
-                    {isAnalyzing ? 'DECODING...' : 'RUN ANALYZER'}
+                  <button onClick={executeAiAnalysis} disabled={isAnalyzing} className="w-full bg-[#ff003c]/10 py-4 rounded-2xl text-[10px] font-black mt-6 border-2 border-[#ff003c]/30 text-[#ff003c] hover:bg-[#ff003c] hover:text-white shadow-[0_0_30px_rgba(255,0,60,0.2)] transition-all">
+                    {isAnalyzing ? 'DECRYPTING...' : 'RUN ANALYZER'}
                   </button>
                 )}
               </div>
@@ -241,11 +242,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="bg-[#050505]/80 p-10 rounded-[4rem] border border-white/10 space-y-8 shadow-2xl">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
-                  <label className="text-[10px] text-white/30 pr-4 uppercase font-black tracking-widest">IDENTIFIER</label>
+                  <label className="text-[10px] text-white/30 pr-4 uppercase font-black tracking-widest">PAYLOAD ID</label>
                   <input type="text" placeholder="TITLE..." value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} className="w-full bg-black border-2 border-white/10 p-5 rounded-[2rem] text-xs text-white outline-none focus:border-[#ff003c] transition-all" />
                 </div>
                 <div className="space-y-3">
-                  <label className="text-[10px] text-white/30 pr-4 uppercase font-black tracking-widest">PARTITION</label>
+                  <label className="text-[10px] text-white/30 pr-4 uppercase font-black tracking-widest">SECTOR</label>
                   <select value={uploadCategory} onChange={e => setUploadCategory(e.target.value)} className="w-full bg-black border-2 border-white/10 p-5 rounded-[2rem] text-[11px] font-black text-[#ff003c] outline-none focus:border-[#ff003c]">
                     {categories.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -254,7 +255,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               <div className="space-y-4">
                  <div className="flex justify-between items-center px-4">
-                    <label className="text-[10px] text-white/30 uppercase font-black tracking-widest">NARRATION SCRIPT</label>
+                    <label className="text-[10px] text-white/30 uppercase font-black tracking-widest">NARRATION LOGIC</label>
                     <div className="flex gap-4">
                        <select value={selectedKeyIndex} onChange={e => setSelectedKeyIndex(Number(e.target.value))} className="bg-black text-[10px] text-[#00f3ff] border-2 border-[#00f3ff]/20 rounded-xl px-3 outline-none">
                           {elevenKeys.map((k, i) => <option key={i} value={i}>NODE {i+1}</option>)}
@@ -271,7 +272,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 onClick={handlePublish} disabled={!selectedFile || isUploading} 
                 className={`w-full py-8 rounded-[3rem] font-black text-white text-xl shadow-[0_20px_60px_rgba(255,0,0,0.4)] transition-all active:scale-95 ${!selectedFile || isUploading ? 'bg-neutral-900 border-neutral-800' : 'bg-[#ff003c] border-2 border-white/20 hover:bg-white hover:text-black'}`}
               >
-                {isUploading ? `INJECTING PAYLOAD (${uploadProgress}%)` : 'EXECUTE INJECTION'}
+                {isUploading ? `INJECTING... (${uploadProgress}%)` : 'EXECUTE UPLOAD'}
               </button>
             </div>
           </div>
@@ -280,17 +281,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {activeTab === 'settings' && (
           <div className="max-w-2xl mx-auto space-y-8">
             <h2 className="text-xl font-black text-[#00f3ff] italic flex items-center gap-4">
-              <span className="w-3 h-3 bg-[#00f3ff] rounded-full animate-pulse shadow-[0_0_20px_#00f3ff]"></span> API NETWORK NODES
+              <span className="w-3 h-3 bg-[#00f3ff] rounded-full animate-pulse shadow-[0_0_20px_#00f3ff]"></span> ENERGY NODE PROTOCOLS
             </h2>
             <div className="space-y-6">
               {elevenKeys.map((key, index) => {
                 const stats = keyStats[key];
                 const remaining = stats ? stats.character_limit - stats.character_count : '...';
+                const percent = stats ? Math.max(0, Math.round(((stats.character_limit - stats.character_count) / stats.character_limit) * 100)) : 0;
+                
                 return (
                   <div key={index} className="bg-[#050505] p-8 rounded-[3rem] border border-white/10 shadow-2xl space-y-4">
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">ELEVEN-KEY {index + 1}</span>
-                      <span className="text-[12px] font-black text-[#00f3ff] italic drop-shadow-[0_0_10px_#00f3ff]">REMAINING: {remaining} CHR</span>
+                      <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">POWER SOURCE {index + 1}</span>
+                      <div className="flex items-center gap-4">
+                        <span className={`text-[12px] font-black italic ${percent < 20 ? 'text-red-500 animate-pulse' : 'text-[#00f3ff]'}`}>
+                          LOAD: {remaining} CHR ({percent}%)
+                        </span>
+                        <div className="w-24 h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/10">
+                          <div className={`h-full transition-all duration-1000 ${percent < 20 ? 'bg-red-600 shadow-[0_0_10px_red]' : 'bg-[#00f3ff] shadow-[0_0_10px_#00f3ff]'}`} style={{ width: `${percent}%` }}></div>
+                        </div>
+                      </div>
                     </div>
                     <input type="password" value={key} onChange={e => {
                       const n = [...elevenKeys]; n[index] = e.target.value; setElevenKeys(n);
@@ -298,7 +308,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                 );
               })}
-              <button onClick={saveSettings} className="w-full bg-[#00f3ff] py-6 rounded-[2.5rem] font-black text-black shadow-[0_0_40px_rgba(0,243,255,0.4)] hover:bg-white active:scale-95 transition-all">SYNCHRONIZE API NETWORK</button>
+              <button onClick={saveSettings} className="w-full bg-[#00f3ff] py-6 rounded-[2.5rem] font-black text-black shadow-[0_0_40px_rgba(0,243,255,0.4)] hover:bg-white active:scale-95 transition-all uppercase tracking-widest">SYNC ALL NODES</button>
             </div>
           </div>
         )}
@@ -306,12 +316,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {activeTab === 'list' && (
           <div className="max-w-2xl mx-auto space-y-6">
              <h3 className="text-lg font-black text-[#ffea00] italic px-4 flex items-center gap-4">
-               <span className="w-3 h-3 bg-[#ffea00] rounded-full shadow-[0_0_20px_#ffea00]"></span> CLOUD ARCHIVE ({vaultVideos.length})
+               <span className="w-3 h-3 bg-[#ffea00] rounded-full shadow-[0_0_20px_#ffea00]"></span> NEURAL ARCHIVE ({vaultVideos.length})
              </h3>
              {vaultVideos.map(v => (
                <div key={v.id} className="bg-[#050505] p-5 rounded-[2.5rem] border border-white/10 flex items-center gap-6 hover:border-[#ffea00]/40 transition-all shadow-xl group">
-                  <div className="w-24 h-16 bg-black rounded-2xl overflow-hidden shrink-0 border border-white/5">
+                  <div className="w-24 h-16 bg-black rounded-2xl overflow-hidden shrink-0 border border-white/5 relative">
                      <video src={v.video_url} className="w-full h-full object-cover opacity-30 group-hover:opacity-100 transition-opacity" />
+                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
                   </div>
                   <div className="flex-1 overflow-hidden text-right">
                      <h4 className="text-[12px] font-black text-white truncate italic">{v.title}</h4>
