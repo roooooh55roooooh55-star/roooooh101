@@ -1,6 +1,7 @@
 
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { Video, UserInteractions, AppView } from './types.ts';
+import { getDirectVideoUrl } from './telegramClient.ts';
 
 export const LOGO_URL = "https://i.top4top.io/p_3643ksmii1.jpg";
 
@@ -100,6 +101,20 @@ const VideoCardThumbnail: React.FC<{
   playedIds: string[]
 }> = ({ video, isOverlayActive, interactions, onLike, isLarge = false, playedIds }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [src, setSrc] = useState(video.video_url || "");
+  const [loading, setLoading] = useState(!video.video_url);
+
+  useEffect(() => {
+    if (!video.video_url && video.telegram_file_id) {
+      getDirectVideoUrl(video.telegram_file_id).then(url => {
+        if (url) setSrc(url);
+        setLoading(false);
+      });
+    } else {
+      setLoading(false);
+    }
+  }, [video.id]);
+
   if (!video) return null;
   const isHeartActive = interactions?.likedIds?.includes(video.id) || interactions?.savedIds?.includes(video.id);
   const neon = getNeonStyle(video.id);
@@ -107,7 +122,7 @@ const VideoCardThumbnail: React.FC<{
 
   useEffect(() => {
     const v = videoRef.current;
-    if (!v) return;
+    if (!v || !src) return;
     if (isOverlayActive) { v.pause(); return; }
     
     const observer = new IntersectionObserver(([entry]) => {
@@ -123,23 +138,29 @@ const VideoCardThumbnail: React.FC<{
 
     observer.observe(v);
     return () => observer.disconnect();
-  }, [video.video_url, isOverlayActive]);
+  }, [src, isOverlayActive]);
 
   const isNew = useMemo(() => !playedIds.includes(video.id), [playedIds, video.id]);
   const isTrending = useMemo(() => stats.views > 1000000, [stats.views]);
 
   return (
     <div className={`w-full h-full relative bg-[#050505] overflow-hidden rounded-[1.5rem] border-2 transition-all duration-500 ${neon.border} ${neon.glow} group shadow-2xl active:scale-95`}>
-      <video 
-        ref={videoRef} 
-        src={video.video_url} 
-        muted 
-        loop 
-        playsInline 
-        autoPlay 
-        preload="auto"
-        className="w-full h-full object-cover contrast-110 saturate-125 pointer-events-none group-hover:scale-110 transition-transform duration-1000" 
-      />
+      {loading ? (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+           <div className="w-6 h-6 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
+        </div>
+      ) : (
+        <video 
+          ref={videoRef} 
+          src={src} 
+          muted 
+          loop 
+          playsInline 
+          autoPlay 
+          preload="auto"
+          className="w-full h-full object-cover contrast-110 saturate-125 pointer-events-none group-hover:scale-110 transition-transform duration-1000" 
+        />
+      )}
       
       <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-30 items-center">
         <button 
@@ -169,6 +190,45 @@ const VideoCardThumbnail: React.FC<{
            <div className="w-1 h-1 bg-white/20 rounded-full"></div>
            <span>{formatBigNumber(stats.views)} Views</span>
         </div>
+      </div>
+    </div>
+  );
+};
+
+const MarqueeVideoItem: React.FC<{ video: Video, isShorts: boolean, onPlay: (v: Video) => void }> = ({ video, isShorts, onPlay }) => {
+  const [src, setSrc] = useState(video.video_url || "");
+  const neon = getNeonStyle(video.id);
+
+  useEffect(() => {
+    if (!video.video_url && video.telegram_file_id) {
+      getDirectVideoUrl(video.telegram_file_id).then(url => {
+        if (url) setSrc(url);
+      });
+    }
+  }, [video.id]);
+
+  return (
+    <div onClick={() => onPlay(video)} className={`${isShorts ? 'w-36 h-56' : 'w-60 h-32'} shrink-0 rounded-[1.5rem] overflow-hidden border-2 relative active:scale-95 transition-all ${neon.border} ${neon.glow}`} dir="rtl">
+      {src ? (
+        <video 
+          src={src} 
+          muted 
+          loop 
+          playsInline 
+          autoPlay 
+          preload="auto"
+          className="w-full h-full object-cover pointer-events-none opacity-80" 
+        />
+      ) : (
+        <div className="w-full h-full bg-black flex items-center justify-center">
+           <div className="w-4 h-4 border border-t-transparent border-white rounded-full animate-spin"></div>
+        </div>
+      )}
+      <div className="absolute top-2 right-2 z-10">
+          <span className="bg-[#ff003c] text-[7px] text-white px-2 py-0.5 rounded-md font-black italic shadow-lg">رائج</span>
+      </div>
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black to-transparent p-3">
+        <p className="text-[9px] font-black text-white truncate italic text-right drop-shadow-md">{video.title}</p>
       </div>
     </div>
   );
@@ -229,28 +289,9 @@ export const InteractiveMarquee: React.FC<{
         }}
         className="flex gap-3 px-3 h-full items-center overflow-x-auto scrollbar-hide select-none cursor-grab active:cursor-grabbing"
       >
-        {displayVideos.map((item, idx) => {
-          const neon = getNeonStyle(item.id);
-          return (
-            <div key={`${item.id}-${idx}`} onClick={() => onPlay(item)} className={`${isShorts ? 'w-36 h-56' : 'w-60 h-32'} shrink-0 rounded-[1.5rem] overflow-hidden border-2 relative active:scale-95 transition-all ${neon.border} ${neon.glow}`} dir="rtl">
-              <video 
-                src={item.video_url} 
-                muted 
-                loop 
-                playsInline 
-                autoPlay 
-                preload="auto"
-                className="w-full h-full object-cover pointer-events-none opacity-80" 
-              />
-              <div className="absolute top-2 right-2 z-10">
-                  <span className="bg-[#ff003c] text-[7px] text-white px-2 py-0.5 rounded-md font-black italic shadow-lg">رائج</span>
-              </div>
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black to-transparent p-3">
-                <p className="text-[9px] font-black text-white truncate italic text-right drop-shadow-md">{item.title}</p>
-              </div>
-            </div>
-          );
-        })}
+        {displayVideos.map((item, idx) => (
+          <MarqueeVideoItem key={`${item.id}-${idx}`} video={item} isShorts={!!isShorts} onPlay={onPlay} />
+        ))}
       </div>
     </div>
   );

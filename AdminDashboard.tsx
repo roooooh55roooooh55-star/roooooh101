@@ -60,6 +60,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
       setAiLogs(prev => [...prev, `[SYSTEM] تم تحميل الملف: ${file.name}`]);
+      
+      // كشف مقاسات الفيديو تلقائياً
+      const tempVideo = document.createElement('video');
+      tempVideo.src = url;
+      tempVideo.onloadedmetadata = () => {
+        const isShort = tempVideo.videoHeight > tempVideo.videoWidth;
+        setVideoType(isShort ? 'short' : 'long');
+        setAiLogs(prev => [...prev, `[INFO] تم الكشف عن المقاس: ${isShort ? 'رأسي (شورتس)' : 'أفقي (عادي)'}`]);
+      };
     }
   };
 
@@ -261,6 +270,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               <div className="space-y-4">
+                 <label className="text-[10px] text-[#00f3ff] pr-4 uppercase font-black tracking-widest">نوع الفيديو</label>
+                 <div className="flex gap-4">
+                   <button 
+                     onClick={() => setVideoType('short')}
+                     className={`flex-1 py-4 rounded-2xl font-black text-[10px] border-2 transition-all ${videoType === 'short' ? 'bg-[#00f3ff] text-black border-white shadow-[0_0_15px_#00f3ff]' : 'bg-black text-[#00f3ff] border-[#00f3ff]/30'}`}
+                   >
+                     فيديو قصير (Shorts)
+                   </button>
+                   <button 
+                     onClick={() => setVideoType('long')}
+                     className={`flex-1 py-4 rounded-2xl font-black text-[10px] border-2 transition-all ${videoType === 'long' ? 'bg-[#ffea00] text-black border-white shadow-[0_0_15px_#ffea00]' : 'bg-black text-[#ffea00] border-[#ffea00]/30'}`}
+                   >
+                     فيديو طويل (Long)
+                   </button>
+                 </div>
+              </div>
+
+              <div className="space-y-4">
                  <div className="flex justify-between items-center px-4">
                     <label className="text-[10px] text-[#00f3ff] uppercase font-black tracking-widest">منطق السرد</label>
                     <button onClick={handleVoiceGeneration} disabled={isGeneratingVoice} className="text-[10px] text-[#ffea00] bg-[#ffea00]/10 px-5 py-2 rounded-xl border-2 border-[#ffea00]/30 font-black hover:bg-[#ffea00] hover:text-black transition-all">
@@ -331,7 +358,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
              <div className="bg-[#00f3ff]/10 p-6 rounded-[2.5rem] border border-[#00f3ff]/30">
                 <h3 className="text-[#ffea00] font-black text-sm mb-4 uppercase italic tracking-widest">سجل أخطاء الحديقة المرعبة</h3>
                 <div className="h-32 overflow-y-auto bg-black/60 rounded-xl p-4 font-mono text-[10px] text-[#00f3ff] space-y-2">
-                   {errors.length > 0 ? errors.map((err, i) => <div key={i}>{'>>'} {err}</div>) : "بوابة الحديقة مستقرة بالكامل."}
+                   {errors.length > 0 ? errors.map((err, i) => <div key={i}>{"> "} {err}</div>) : "بوابة الحديقة مستقرة بالكامل."}
                 </div>
              </div>
 
