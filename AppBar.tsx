@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { AppView } from './types';
-// Import LOGO_URL from MainContent to fix the reference error
 import { LOGO_URL } from './MainContent';
 
 interface AppBarProps {
@@ -14,19 +13,23 @@ const AppBar: React.FC<AppBarProps> = ({ onViewChange, onRefresh, currentView })
   const channelId = 'UCDc_3d066uDWC3ljZTccKUg';
   const youtubeWebUrl = `https://www.youtube.com/channel/${channelId}?si=spOUUwvDeudYtwEr`;
 
-  const getBtnClass = (view: AppView, colorClass: string, glowColor: string) => {
+  const getBtnClass = (view: AppView, defaultColor: string, glowColor: string) => {
     const isActive = currentView === view;
-    return `w-12 h-12 rounded-[1.2rem] flex items-center justify-center transition-all duration-500 border-2 active:scale-95 ${
+    const isSaveBtn = view === AppView.SAVED;
+    const activeColor = isSaveBtn ? 'text-[#ffea00]' : defaultColor;
+    const activeGlow = isSaveBtn ? '#ffea00' : glowColor;
+
+    return `w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 border-2 active:scale-90 ${
       isActive 
-      ? `bg-black/80 ${colorClass} border-current scale-110 z-20 shadow-[0_0_30px_${glowColor}]` 
-      : `bg-white/5 border-white/10 ${colorClass} opacity-60`
-    } hover:shadow-[0_0_20px_${glowColor}] hover:opacity-100`;
+      ? `bg-black/90 ${activeColor} border-current scale-110 z-20 shadow-[0_0_35px_${activeGlow}] ring-2 ring-white/10` 
+      : `bg-white/5 border-white/10 ${isSaveBtn ? 'text-[#ffea00]' : defaultColor} opacity-50`
+    } hover:opacity-100`;
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-20 bg-black/90 backdrop-blur-3xl z-[100] border-b border-white/10 px-6 flex items-center justify-between shadow-[0_10px_40px_black]">
+    <header className="fixed top-0 left-0 right-0 h-20 bg-black/95 backdrop-blur-3xl z-[150] border-b border-white/10 px-4 flex items-center justify-around shadow-[0_10px_40px_rgba(0,0,0,0.9)]">
       
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         <button 
           onClick={() => onViewChange(AppView.TREND)}
           className={getBtnClass(AppView.TREND, 'text-[#ff003c]', '#ff003c')}
@@ -42,38 +45,23 @@ const AppBar: React.FC<AppBarProps> = ({ onViewChange, onRefresh, currentView })
         >
           <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>
         </button>
-
-        <button 
-          onClick={() => onViewChange(AppView.HIDDEN)}
-          className={getBtnClass(AppView.HIDDEN, 'text-[#ffea00]', '#ffea00')}
-          title="EXCLUDED"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88L4.64 4.64m10.95 10.95l5.24 5.24"/></svg>
-        </button>
       </div>
 
       <button 
         onClick={() => { onViewChange(AppView.HOME); onRefresh(); }}
-        className="relative group active:scale-90 transition-all duration-700"
+        className="relative group active:scale-90 transition-all duration-700 mx-4"
       >
-        <div className="absolute inset-0 bg-[#ff003c] rounded-full blur-2xl opacity-40 group-hover:opacity-80 transition-opacity"></div>
-        <img src={LOGO_URL} className="w-16 h-16 rounded-full border-2 border-white/20 relative z-10 shadow-[0_0_30px_rgba(0,0,0,0.5)] group-hover:border-[#ff003c]" alt="Logo" />
+        <div className="absolute inset-0 bg-[#ff003c] rounded-full blur-2xl opacity-40 group-hover:opacity-100 transition-opacity"></div>
+        <img src={LOGO_URL} className="w-14 h-14 rounded-full border-2 border-[#ff003c]/40 relative z-10 shadow-[0_0_20px_rgba(255,0,60,0.5)] group-hover:border-[#ff003c] group-hover:shadow-[0_0_30px_#ff003c]" alt="Logo" />
       </button>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         <button 
           onClick={() => onViewChange(AppView.SAVED)}
-          className={getBtnClass(AppView.SAVED, 'text-[#39ff14]', '#39ff14')}
+          className={getBtnClass(AppView.SAVED, 'text-[#ffea00]', '#ffea00')}
           title="SAVED"
         >
           <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
-        </button>
-
-        <button 
-          onClick={() => window.open(youtubeWebUrl, '_blank')}
-          className="w-12 h-12 rounded-[1.2rem] bg-white/5 border-2 border-white/10 flex items-center justify-center text-[#ff003c] hover:shadow-[0_0_25px_#ff003c] transition-all"
-        >
-          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 4-8 4z"/></svg>
         </button>
 
         <button 

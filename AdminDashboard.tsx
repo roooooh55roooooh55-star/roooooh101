@@ -4,39 +4,37 @@ import { Video } from './types';
 import { uploadVideoWithProgress, fetchChannelVideos } from './telegramClient';
 import { analyzeVideoFrames, VideoAnalysisResult } from './geminiService';
 import { generateSpeech, getSubscriptionInfo, SubscriptionInfo } from './elevenLabsService';
+import { GoogleGenAI } from "@google/genai";
 
 interface AdminDashboardProps {
   onClose: () => void;
   categories: string[];
   initialVideos: Video[];
+  errors: string[];
 }
 
-const DEFAULT_ELEVEN_KEYS = [
-  '97b061348f54aac071926ba535a848e27bee7e1b66655d2c4aea97e61c1d1a63',
-  '6b7ff2d708a0c87354587dab2f6e37f2e981f0ee5361a753b0e5048c13ed4686',
-  '3d8249a70637e154c4a407b367681da5ae675d2a555a0202ab5b8e6613c1b835'
-];
-
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
-  onClose, categories, initialVideos 
+  onClose, categories, initialVideos, errors 
 }) => {
-  const [activeTab, setActiveTab] = useState<'upload' | 'settings' | 'list'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'settings' | 'list' | 'debug'>('upload');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passcode, setPasscode] = useState('');
   
   const [elevenKeys, setElevenKeys] = useState<string[]>(() => {
     const saved = localStorage.getItem('admin_eleven_keys_v2');
-    return saved ? JSON.parse(saved) : DEFAULT_ELEVEN_KEYS;
+    return saved ? JSON.parse(saved) : [
+      '97b061348f54aac071926ba535a848e27bee7e1b66655d2c4aea97e61c1d1a63',
+      '6b7ff2d708a0c87354587dab2f6e37f2e981f0ee5361a753b0e5048c13ed4686',
+      '3d8249a70637e154c4a407b367681da5ae675d2a555a0202ab5b8e6613c1b835'
+    ];
   });
   const [keyStats, setKeyStats] = useState<{[key: string]: SubscriptionInfo | null}>({});
-  const [selectedKeyIndex, setSelectedKeyIndex] = useState(0);
   const [voiceId, setVoiceId] = useState(localStorage.getItem('admin_voice_id') || 'EXAVIT9mxu1B8L2Kx57H');
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiLogs, setAiLogs] = useState<string[]>([]);
-  const [analysisResult, setAnalysisResult] = useState<VideoAnalysisResult | null>(null);
   
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadCategory, setUploadCategory] = useState(categories[0]);
@@ -44,14 +42,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [videoType, setVideoType] = useState<'short' | 'long'>('short');
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  const [generatedAudio, setGeneratedAudio] = useState<string | null>(null);
   const [isGeneratingVoice, setIsGeneratingVoice] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-
   const [vaultVideos, setVaultVideos] = useState<Video[]>(initialVideos);
+
+  const [debugChat, setDebugChat] = useState<{role: string, text: string}[]>([]);
+  const [debugInput, setDebugInput] = useState('');
+  const [isDebugLoading, setIsDebugLoading] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+      setAiLogs(prev => [...prev, `[SYSTEM] تم تحميل الملف: ${file.name}`]);
+    }
+  };
 
   useEffect(() => {
     if (isAuthenticated) refreshKeyStats();
@@ -68,32 +78,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleAuth = () => {
     if (passcode === '5030775') setIsAuthenticated(true);
-    else { alert("ACCESS DENIED: DNA mismatch detected."); setPasscode(''); }
-  };
-
-  const saveSettings = () => {
-    localStorage.setItem('admin_eleven_keys_v2', JSON.stringify(elevenKeys));
-    localStorage.setItem('admin_voice_id', voiceId);
-    alert('SYSTEM UPDATED: API Protocols re-synced.');
-    refreshKeyStats();
-  };
-
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
-      setAiLogs(["[INFO] CORE SAMPLE DETECTED.", "[WAIT] INITIALIZING THERMAL SCAN..."]);
-      const v = document.createElement('video');
-      v.src = URL.createObjectURL(file);
-      v.onloadedmetadata = () => { setVideoType(v.videoHeight > v.videoWidth ? 'short' : 'long'); };
-    }
+    else { alert("تم رفض الدخول: الرمز غير صحيح."); setPasscode(''); }
   };
 
   const executeAiAnalysis = async () => {
     if (!videoRef.current || !canvasRef.current || !selectedFile) return;
     setIsAnalyzing(true);
-    setAiLogs(prev => [...prev, "[AI] INITIATING GEMINI DEEP SCAN...", "[PROCESS] EXTRACTING CONTENT DATA..."]);
+    setAiLogs(prev => [...prev, "[AI] فحص عميق بواسطة Gemini...", "[PROCESS] استخراج بيانات الحتوى..."]);
     try {
       const canvas = canvasRef.current;
       const video = videoRef.current;
@@ -101,29 +92,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       canvas.height = video.videoHeight;
       canvas.getContext('2d')?.drawImage(video, 0, 0);
       const base64Image = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
-      
       const result = await analyzeVideoFrames(base64Image, selectedFile.name);
-      setAnalysisResult(result);
       setUploadTitle(result.title);
       setUploadCategory(result.category);
       setUploadNarration(result.narration);
-      setAiLogs(prev => [...prev, "[SUCCESS] PATTERN RECOGNITION COMPLETE."]);
-    } catch (e) {
-      setAiLogs(prev => [...prev, "[ERROR] QUANTUM COMPUTE FAILURE."]);
+      setAiLogs(prev => [...prev, "[SUCCESS] تم تحليل النمط بنجاح."]);
+    } catch (e: any) {
+      setAiLogs(prev => [...prev, `[ERROR] فشل التحليل: ${e.message}`]);
     } finally { setIsAnalyzing(false); }
   };
 
   const handleVoiceGeneration = async () => {
-    const currentKey = elevenKeys[selectedKeyIndex];
+    const currentKey = elevenKeys[0];
     if (!uploadNarration || !currentKey) return;
     setIsGeneratingVoice(true);
     const audioUrl = await generateSpeech(uploadNarration, currentKey, voiceId);
     if (audioUrl) {
-      setGeneratedAudio(audioUrl);
-      setAiLogs(prev => [...prev, "[VOICE] NARRATION SYNCED TO CORE."]);
+      setAiLogs(prev => [...prev, "[VOICE] تم توليد السرد الصوتي بنجاح."]);
       refreshKeyStats();
     } else {
-      alert('KEY CRITICAL: Insufficient power (Characters depleted).');
+      alert('خطأ: مفتاح الصوت مستهلك أو غير صالح.');
     }
     setIsGeneratingVoice(false);
   };
@@ -139,13 +127,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         narration: uploadNarration,
         type: videoType
       }, (p) => setUploadProgress(p));
-
       if (result.ok) {
-        alert("UPLOAD COMPLETE: Payload successfully injected into the void.");
-        setPreviewUrl(null); setSelectedFile(null); setUploadNarration(''); setGeneratedAudio(null);
+        alert("تم الرفع بنجاح للحديقة المرعبة.");
+        setPreviewUrl(null); setSelectedFile(null); setUploadNarration('');
         refreshVault();
       }
-    } catch (e) { alert("INJECTION FAILED: Network interference detected."); }
+    } catch (e: any) { alert(`خطأ في الرفع: ${e.message}`); }
     finally { setIsUploading(false); }
   };
 
@@ -154,28 +141,50 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setVaultVideos(data);
   };
 
-  const deleteVideoFromVault = (id: string) => {
-    if (!window.confirm("PERMANENT DELETION: Are you sure you want to erase this data?")) return;
-    const updated = vaultVideos.filter(v => v.id !== id);
-    setVaultVideos(updated);
-    const deleted = JSON.parse(localStorage.getItem('al-hadiqa-deleted-ids') || '[]');
-    localStorage.setItem('al-hadiqa-deleted-ids', JSON.stringify([...deleted, id]));
+  const handleEditVideo = (video: Video) => {
+    setUploadTitle(video.title);
+    setUploadCategory(video.category);
+    setUploadNarration(video.narration || "");
+    setVideoType(video.type);
+    setActiveTab('upload');
+  };
+
+  const handleTalkToGemini = async () => {
+    if (!debugInput.trim() || isDebugLoading) return;
+    const userInput = debugInput;
+    setDebugInput('');
+    setDebugChat(prev => [...prev, {role: 'user', text: userInput}]);
+    setIsDebugLoading(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: [
+          { role: 'user', parts: [{ text: `أنت مساعد مطور الحديقة المرعبة. الأخطاء: ${errors.join(', ')}. سؤال: ${userInput}` }] }
+        ]
+      });
+      setDebugChat(prev => [...prev, {role: 'model', text: response.text || "لا يوجد رد."}]);
+    } catch (e: any) {
+      setDebugChat(prev => [...prev, {role: 'model', text: `خطأ: ${e.message}`}]);
+    } finally {
+      setIsDebugLoading(false);
+    }
   };
 
   if (!isAuthenticated) {
     return (
       <div className="fixed inset-0 z-[1000] bg-black flex flex-col items-center justify-center p-6 tech-font">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(0,243,255,0.1)_0%,_#000000_100%)]"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(0,243,255,0.15)_0%,_#000000_100%)]"></div>
         <div className="relative z-10 space-y-12 text-center">
           <div className="space-y-2">
-            <h2 className="text-5xl font-black text-[#00f3ff] italic tracking-tighter drop-shadow-[0_0_30px_#00f3ff]">SYSTEM ACCESS</h2>
-            <p className="text-[10px] text-white/40 uppercase tracking-[0.5em]">Security Gate Protocol // 5030775</p>
+            <h2 className="text-5xl font-black text-[#00f3ff] italic tracking-tighter drop-shadow-[0_0_30px_#00f3ff]">دخول النظام</h2>
+            <p className="text-[10px] text-white/40 uppercase tracking-[0.5em]">بروتوكول البوابة الآمنة</p>
           </div>
           <input 
             type="password" value={passcode} onChange={e => setPasscode(e.target.value)} 
-            placeholder="••••••" className="bg-black/80 border-2 border-[#00f3ff]/30 p-6 rounded-[2.5rem] text-center w-72 text-[#00f3ff] font-black text-4xl outline-none focus:border-[#00f3ff] shadow-[inset_0_0_30px_rgba(0,243,255,0.1)] transition-all"
+            placeholder="••••••" className="bg-black/80 border-2 border-[#ffea00]/30 p-6 rounded-[2.5rem] text-center w-72 text-[#ffea00] font-black text-4xl outline-none focus:border-[#ffea00] shadow-[inset_0_0_30px_rgba(255,234,0,0.1)] transition-all"
           />
-          <button onClick={handleAuth} className="w-full bg-[#00f3ff] hover:bg-white hover:text-black py-6 rounded-full font-black text-white text-xl shadow-[0_0_50px_rgba(0,243,255,0.4)] active:scale-95 transition-all">INITIATE BOOT</button>
+          <button onClick={handleAuth} className="w-full bg-[#00f3ff] py-6 rounded-full font-black text-black text-xl shadow-[0_0_50px_rgba(0,243,255,0.4)] active:scale-95 transition-all uppercase">بدء التشغيل</button>
         </div>
       </div>
     );
@@ -183,27 +192,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   return (
     <div className="fixed inset-0 z-[900] bg-[#020202] overflow-hidden flex flex-col tech-font" dir="rtl">
-      {/* High-Tech Header */}
       <div className="h-20 border-b border-[#00f3ff]/20 flex items-center justify-between px-8 bg-black/90 backdrop-blur-3xl shadow-[0_4px_30px_rgba(0,243,255,0.1)]">
         <div className="flex items-center gap-4">
-          <div className="w-3 h-3 bg-[#00f3ff] rounded-full animate-ping shadow-[0_0_20px_#00f3ff]"></div>
-          <h1 className="text-[12px] font-black text-[#00f3ff] uppercase tracking-[0.4em] italic drop-shadow-[0_0_10px_rgba(0,243,255,0.5)]">OPERATIONAL PANEL v9.0</h1>
+          <div className="w-3 h-3 bg-[#ffea00] rounded-full animate-ping shadow-[0_0_20px_#ffea00]"></div>
+          <h1 className="text-[14px] font-black text-[#00f3ff] uppercase tracking-[0.3em] italic">لوحة تحكم الحديقة المرعبة</h1>
         </div>
-        <button onClick={onClose} className="text-white/40 hover:text-[#00f3ff] p-2 transition-colors duration-500">
+        <button onClick={onClose} className="text-white/40 hover:text-[#ffea00] p-2 transition-colors duration-500">
           <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="3" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
 
-      {/* Cyberpunk Tabs */}
       <div className="flex border-b border-white/5 bg-neutral-900/10">
         {[
-          { id: 'upload', label: 'DATA INJECTION', color: 'text-[#ff003c]', border: 'border-[#ff003c]' },
-          { id: 'settings', label: 'POWER NODES', color: 'text-[#00f3ff]', border: 'border-[#00f3ff]' },
-          { id: 'list', label: 'VOXEL ARCHIVE', color: 'text-[#ffea00]', border: 'border-[#ffea00]' }
+          { id: 'upload', label: 'حقن البيانات', color: 'text-[#00f3ff]', border: 'border-[#00f3ff]' },
+          { id: 'settings', label: 'عقد الطاقة', color: 'text-[#ffea00]', border: 'border-[#ffea00]' },
+          { id: 'list', label: 'أرشيف الفوكسل', color: 'text-[#00f3ff]', border: 'border-[#00f3ff]' },
+          { id: 'debug', label: 'تحليل الأخطاء', color: 'text-[#bc00ff]', border: 'border-[#bc00ff]' }
         ].map(tab => (
           <button 
             key={tab.id} onClick={() => setActiveTab(tab.id as any)} 
-            className={`flex-1 py-6 text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-500 ${activeTab === tab.id ? `${tab.color} bg-white/5 border-b-2 ${tab.border}` : 'text-white/20 hover:text-white/60'}`}
+            className={`flex-1 py-6 text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-500 ${activeTab === tab.id ? `${tab.color} bg-white/5 border-b-2 ${tab.border} shadow-[0_5px_15px_rgba(0,0,0,0.5)]` : 'text-white/20 hover:text-white/60'}`}
           >
             {tab.label}
           </button>
@@ -214,26 +222,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {activeTab === 'upload' && (
           <div className="space-y-8 max-w-2xl mx-auto">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="aspect-video bg-[#050505] rounded-[2.5rem] border-2 border-dashed border-[#ff003c]/30 flex items-center justify-center relative overflow-hidden group shadow-[0_0_40px_rgba(255,0,60,0.1)]">
+              <div className="aspect-video bg-[#050505] rounded-[2.5rem] border-2 border-dashed border-[#00f3ff]/30 flex items-center justify-center relative overflow-hidden group shadow-[0_0_40px_rgba(0,243,255,0.1)]">
                 {previewUrl ? (
                   <video ref={videoRef} src={previewUrl} className="w-full h-full object-contain" controls />
                 ) : (
-                  <label className="cursor-pointer flex flex-col items-center gap-6 text-white/30 hover:text-[#ff003c] transition-all duration-500">
+                  <label className="cursor-pointer flex flex-col items-center gap-6 text-white/30 hover:text-[#00f3ff] transition-all duration-500">
                     <svg className="w-14 h-14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="2.5" d="M12 4v16m8-8H4"/></svg>
-                    <span className="text-[10px] font-black uppercase tracking-widest">UPLOAD PAYLOAD</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">تحميل الحمولة</span>
                     <input type="file" className="hidden" accept="video/*" onChange={onFileChange} />
                   </label>
                 )}
               </div>
               <div className="bg-black/60 p-6 rounded-[2.5rem] border border-white/10 flex flex-col shadow-2xl">
-                <h3 className="text-[10px] font-black text-[#ff003c] mb-6 uppercase italic tracking-[0.2em]">LIVE LOG STREAM</h3>
-                <div className="flex-1 h-32 overflow-y-auto text-[10px] text-[#ff003c]/80 font-mono space-y-2 leading-relaxed">
-                  {/* FIX: Escaping the ">>" symbol for Netlify Build safety */}
-                  {aiLogs.map((log, i) => <div key={i} className="border-l-2 border-[#ff003c]/20 pl-3">{" >> "} {log}</div>)}
+                <h3 className="text-[11px] font-black text-[#ffea00] mb-6 uppercase italic tracking-[0.2em]">سجل التحليل الحي</h3>
+                <div className="flex-1 h-32 overflow-y-auto text-[10px] text-[#00f3ff]/80 font-mono space-y-2 leading-relaxed">
+                  {aiLogs.map((log, i) => <div key={i} className="border-l-2 border-[#00f3ff]/20 pl-3">{" >> "} {log}</div>)}
                 </div>
-                {previewUrl && !analysisResult && (
-                  <button onClick={executeAiAnalysis} disabled={isAnalyzing} className="w-full bg-[#ff003c]/10 py-4 rounded-2xl text-[10px] font-black mt-6 border-2 border-[#ff003c]/30 text-[#ff003c] hover:bg-[#ff003c] hover:text-white shadow-[0_0_30px_rgba(255,0,60,0.2)] transition-all">
-                    {isAnalyzing ? 'DECRYPTING...' : 'RUN ANALYZER'}
+                {previewUrl && (
+                  <button onClick={executeAiAnalysis} disabled={isAnalyzing} className="w-full bg-[#00f3ff]/10 py-4 rounded-2xl text-[10px] font-black mt-6 border-2 border-[#00f3ff]/30 text-[#00f3ff] hover:bg-[#00f3ff] hover:text-black transition-all">
+                    {isAnalyzing ? 'جاري فك التشفير...' : 'تشغيل المحلل الذكي'}
                   </button>
                 )}
               </div>
@@ -242,12 +249,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="bg-[#050505]/80 p-10 rounded-[4rem] border border-white/10 space-y-8 shadow-2xl">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
-                  <label className="text-[10px] text-white/30 pr-4 uppercase font-black tracking-widest">PAYLOAD ID</label>
-                  <input type="text" placeholder="TITLE..." value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} className="w-full bg-black border-2 border-white/10 p-5 rounded-[2rem] text-xs text-white outline-none focus:border-[#ff003c] transition-all" />
+                  <label className="text-[10px] text-[#00f3ff] pr-4 uppercase font-black tracking-widest">العنوان</label>
+                  <input type="text" placeholder="العنوان..." value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} className="w-full bg-black border-2 border-white/10 p-5 rounded-[2rem] text-xs text-white outline-none focus:border-[#ffea00]" />
                 </div>
                 <div className="space-y-3">
-                  <label className="text-[10px] text-white/30 pr-4 uppercase font-black tracking-widest">SECTOR</label>
-                  <select value={uploadCategory} onChange={e => setUploadCategory(e.target.value)} className="w-full bg-black border-2 border-white/10 p-5 rounded-[2rem] text-[11px] font-black text-[#ff003c] outline-none focus:border-[#ff003c]">
+                  <label className="text-[10px] text-[#00f3ff] pr-4 uppercase font-black tracking-widest">القطاع</label>
+                  <select value={uploadCategory} onChange={e => setUploadCategory(e.target.value)} className="w-full bg-black border-2 border-white/10 p-5 rounded-[2rem] text-[11px] font-black text-[#ffea00] outline-none">
                     {categories.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
@@ -255,24 +262,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               <div className="space-y-4">
                  <div className="flex justify-between items-center px-4">
-                    <label className="text-[10px] text-white/30 uppercase font-black tracking-widest">NARRATION LOGIC</label>
-                    <div className="flex gap-4">
-                       <select value={selectedKeyIndex} onChange={e => setSelectedKeyIndex(Number(e.target.value))} className="bg-black text-[10px] text-[#00f3ff] border-2 border-[#00f3ff]/20 rounded-xl px-3 outline-none">
-                          {elevenKeys.map((k, i) => <option key={i} value={i}>NODE {i+1}</option>)}
-                       </select>
-                       <button onClick={handleVoiceGeneration} disabled={isGeneratingVoice} className="text-[10px] text-[#00f3ff] bg-[#00f3ff]/10 px-5 py-2 rounded-xl border-2 border-[#00f3ff]/30 hover:bg-[#00f3ff] hover:text-black transition-all">
-                         {isGeneratingVoice ? 'SYNTHESIZING...' : 'GENERATE VOICE'}
-                       </button>
-                    </div>
+                    <label className="text-[10px] text-[#00f3ff] uppercase font-black tracking-widest">منطق السرد</label>
+                    <button onClick={handleVoiceGeneration} disabled={isGeneratingVoice} className="text-[10px] text-[#ffea00] bg-[#ffea00]/10 px-5 py-2 rounded-xl border-2 border-[#ffea00]/30 font-black hover:bg-[#ffea00] hover:text-black transition-all">
+                      توليد صوت
+                    </button>
                  </div>
-                 <textarea value={uploadNarration} onChange={e => setUploadNarration(e.target.value)} className="w-full bg-black border-2 border-white/10 p-6 rounded-[2.5rem] h-32 text-xs italic text-white/60 outline-none focus:border-[#ff003c] transition-all" />
+                 <textarea value={uploadNarration} onChange={e => setUploadNarration(e.target.value)} className="w-full bg-black border-2 border-white/10 p-6 rounded-[2.5rem] h-32 text-xs italic text-white/60 outline-none focus:border-[#00f3ff]" />
               </div>
               
               <button 
                 onClick={handlePublish} disabled={!selectedFile || isUploading} 
-                className={`w-full py-8 rounded-[3rem] font-black text-white text-xl shadow-[0_20px_60px_rgba(255,0,0,0.4)] transition-all active:scale-95 ${!selectedFile || isUploading ? 'bg-neutral-900 border-neutral-800' : 'bg-[#ff003c] border-2 border-white/20 hover:bg-white hover:text-black'}`}
+                className={`w-full py-8 rounded-[3rem] font-black text-black text-xl shadow-[0_20px_60px_rgba(0,243,255,0.2)] transition-all ${!selectedFile || isUploading ? 'bg-neutral-900' : 'bg-[#00f3ff] border-2 border-white/20 hover:bg-[#ffea00] hover:text-black'}`}
               >
-                {isUploading ? `INJECTING... (${uploadProgress}%)` : 'EXECUTE UPLOAD'}
+                {isUploading ? `جاري الحقن... (${uploadProgress}%)` : 'تنفيذ الرفع'}
               </button>
             </div>
           </div>
@@ -280,59 +282,79 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         {activeTab === 'settings' && (
           <div className="max-w-2xl mx-auto space-y-8">
-            <h2 className="text-xl font-black text-[#00f3ff] italic flex items-center gap-4">
-              <span className="w-3 h-3 bg-[#00f3ff] rounded-full animate-pulse shadow-[0_0_20px_#00f3ff]"></span> ENERGY NODE PROTOCOLS
-            </h2>
-            <div className="space-y-6">
-              {elevenKeys.map((key, index) => {
-                const stats = keyStats[key];
-                const remaining = stats ? stats.character_limit - stats.character_count : '...';
-                const percent = stats ? Math.max(0, Math.round(((stats.character_limit - stats.character_count) / stats.character_limit) * 100)) : 0;
-                
-                return (
-                  <div key={index} className="bg-[#050505] p-8 rounded-[3rem] border border-white/10 shadow-2xl space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">POWER SOURCE {index + 1}</span>
-                      <div className="flex items-center gap-4">
-                        <span className={`text-[12px] font-black italic ${percent < 20 ? 'text-red-500 animate-pulse' : 'text-[#00f3ff]'}`}>
-                          LOAD: {remaining} CHR ({percent}%)
-                        </span>
-                        <div className="w-24 h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/10">
-                          <div className={`h-full transition-all duration-1000 ${percent < 20 ? 'bg-red-600 shadow-[0_0_10px_red]' : 'bg-[#00f3ff] shadow-[0_0_10px_#00f3ff]'}`} style={{ width: `${percent}%` }}></div>
-                        </div>
-                      </div>
-                    </div>
-                    <input type="password" value={key} onChange={e => {
-                      const n = [...elevenKeys]; n[index] = e.target.value; setElevenKeys(n);
-                    }} className="w-full bg-black border-2 border-white/5 p-5 rounded-2xl text-[10px] text-white outline-none focus:border-[#00f3ff] transition-all" />
+            <h2 className="text-xl font-black text-[#ffea00] italic flex items-center gap-4 uppercase">عقد شبكة الحديقة المرعبة</h2>
+            {elevenKeys.map((key, index) => {
+              const stats = keyStats[key];
+              const remaining = stats ? stats.character_limit - stats.character_count : '...';
+              return (
+                <div key={index} className="bg-[#050505] p-8 rounded-[3rem] border border-white/10 space-y-4 shadow-xl">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[11px] font-black text-[#00f3ff] uppercase">مفتاح الصوت الذكي {index + 1}</span>
+                    <span className="text-[12px] font-black text-[#ffea00] italic">المتبقي: {remaining} حرف</span>
                   </div>
-                );
-              })}
-              <button onClick={saveSettings} className="w-full bg-[#00f3ff] py-6 rounded-[2.5rem] font-black text-black shadow-[0_0_40px_rgba(0,243,255,0.4)] hover:bg-white active:scale-95 transition-all uppercase tracking-widest">SYNC ALL NODES</button>
-            </div>
+                  <input type="password" value={key} onChange={e => {
+                    const n = [...elevenKeys]; n[index] = e.target.value; setElevenKeys(n);
+                  }} className="w-full bg-black border-2 border-white/5 p-5 rounded-2xl text-[10px] text-white outline-none focus:border-[#ffea00]" />
+                </div>
+              );
+            })}
           </div>
         )}
 
         {activeTab === 'list' && (
           <div className="max-w-2xl mx-auto space-y-6">
-             <h3 className="text-lg font-black text-[#ffea00] italic px-4 flex items-center gap-4">
-               <span className="w-3 h-3 bg-[#ffea00] rounded-full shadow-[0_0_20px_#ffea00]"></span> NEURAL ARCHIVE ({vaultVideos.length})
-             </h3>
+             <h3 className="text-lg font-black text-[#ffea00] italic px-4 uppercase tracking-widest">الأرشيف العصبي للحديقة ({vaultVideos.length})</h3>
              {vaultVideos.map(v => (
-               <div key={v.id} className="bg-[#050505] p-5 rounded-[2.5rem] border border-white/10 flex items-center gap-6 hover:border-[#ffea00]/40 transition-all shadow-xl group">
+               <div key={v.id} className="bg-[#050505] p-5 rounded-[2.5rem] border border-white/10 flex items-center gap-6 shadow-xl group hover:border-[#00f3ff]/40 transition-all">
                   <div className="w-24 h-16 bg-black rounded-2xl overflow-hidden shrink-0 border border-white/5 relative">
-                     <video src={v.video_url} className="w-full h-full object-cover opacity-30 group-hover:opacity-100 transition-opacity" />
-                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                     <video src={v.video_url} className="w-full h-full object-cover opacity-30 group-hover:opacity-100" />
                   </div>
                   <div className="flex-1 overflow-hidden text-right">
                      <h4 className="text-[12px] font-black text-white truncate italic">{v.title}</h4>
-                     <p className="text-[9px] text-white/40 uppercase tracking-widest mt-1">{v.category}</p>
+                     <p className="text-[10px] text-[#00f3ff] font-black uppercase mt-1 tracking-widest">{v.category}</p>
                   </div>
-                  <button onClick={() => deleteVideoFromVault(v.id)} className="p-4 text-[#ff003c] bg-[#ff003c]/10 border border-[#ff003c]/20 rounded-2xl hover:bg-[#ff003c] hover:text-white transition-all shadow-lg active:scale-75">
-                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="3" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                  </button>
+                  <div className="flex gap-2">
+                    <button onClick={() => handleEditVideo(v)} className="p-4 text-[#ffea00] bg-[#ffea00]/10 border border-[#ffea00]/20 rounded-2xl hover:bg-[#ffea00] hover:text-black transition-all shadow-lg font-black text-[11px]">
+                       تعديل
+                    </button>
+                    <button className="p-4 text-red-500 bg-red-500/10 border border-red-500/20 rounded-2xl hover:bg-red-500 hover:text-white shadow-lg text-[11px] font-black">
+                       حذف
+                    </button>
+                  </div>
                </div>
              ))}
+          </div>
+        )}
+
+        {activeTab === 'debug' && (
+          <div className="max-w-2xl mx-auto space-y-8">
+             <div className="bg-[#00f3ff]/10 p-6 rounded-[2.5rem] border border-[#00f3ff]/30">
+                <h3 className="text-[#ffea00] font-black text-sm mb-4 uppercase italic tracking-widest">سجل أخطاء الحديقة المرعبة</h3>
+                <div className="h-32 overflow-y-auto bg-black/60 rounded-xl p-4 font-mono text-[10px] text-[#00f3ff] space-y-2">
+                   {errors.length > 0 ? errors.map((err, i) => <div key={i}>> {err}</div>) : "بوابة الحديقة مستقرة بالكامل."}
+                </div>
+             </div>
+
+             <div className="flex flex-col h-[50dvh] bg-black/90 border border-white/5 rounded-[3rem] overflow-hidden shadow-2xl">
+                <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-hide">
+                   <div className="text-[10px] text-gray-500 font-black text-center uppercase tracking-widest">Horror Garden Debug Console</div>
+                   {debugChat.map((msg, i) => (
+                     <div key={i} className={`flex ${msg.role === 'user' ? 'justify-start' : 'justify-end'}`}>
+                        <div className={`max-w-[80%] p-4 rounded-2xl text-xs font-black ${msg.role === 'user' ? 'bg-[#00f3ff]/10 text-[#00f3ff] border border-[#00f3ff]/20' : 'bg-[#ffea00]/10 text-[#ffea00] border border-[#ffea00]/20'}`}>
+                           {msg.text}
+                        </div>
+                     </div>
+                   ))}
+                </div>
+                <div className="p-4 bg-black border-t border-white/10 flex gap-2">
+                   <input 
+                     type="text" value={debugInput} onChange={e => setDebugInput(e.target.value)}
+                     placeholder="اسأل حارس الحديقة الذكي..." 
+                     className="flex-1 bg-white/5 border border-white/10 rounded-2xl p-4 text-xs text-white outline-none focus:border-[#00f3ff]"
+                   />
+                   <button onClick={handleTalkToGemini} className="px-6 bg-[#00f3ff] text-black rounded-2xl font-black text-xs hover:bg-[#ffea00] transition-colors uppercase">تحليل</button>
+                </div>
+             </div>
           </div>
         )}
       </div>

@@ -33,9 +33,12 @@ const App: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [rawVideos, setRawVideos] = useState<Video[]>([]); 
   const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false); 
   const [selectedShort, setSelectedShort] = useState<{ video: Video, list: Video[] } | null>(null);
   const [selectedLong, setSelectedLong] = useState<{ video: Video, list: Video[] } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [systemErrors, setSystemErrors] = useState<string[]>([]);
+  const [playedIds, setPlayedIds] = useState<string[]>([]);
   
   const [startY, setStartY] = useState(0);
   const [pullOffset, setPullOffset] = useState(0);
@@ -56,9 +59,11 @@ const App: React.FC = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const loadData = useCallback(async (isHardRefresh = false) => {
-    if (isHardRefresh) showToast("SYNCING ARCHIVE...");
-    setLoading(true);
+  const loadData = useCallback(async (isManual = false) => {
+    if (isManual) {
+      setLoading(true);
+      setIsSyncing(true);
+    }
     
     try {
       const data = await fetchChannelVideos();
@@ -74,20 +79,22 @@ const App: React.FC = () => {
         const remaining = filtered.filter(v => !recommendedOrder.includes(v.id));
         setRawVideos([...orderedVideos, ...remaining]);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Fetch Error:", err);
-      const cached = localStorage.getItem('horror_vault');
-      if (cached) setRawVideos(JSON.parse(cached));
+      setSystemErrors(prev => [...prev.slice(-5), `خطأ مزامنة: ${err.message || 'فشل الاتصال'}`]);
     } finally {
       setLoading(false);
+      if (isManual) {
+        setTimeout(() => setIsSyncing(false), 2000);
+      }
     }
   }, [interactions]);
 
   useEffect(() => {
-    loadData(false);
-    const syncInterval = setInterval(() => loadData(false), 300000);
+    loadData(true);
+    const syncInterval = setInterval(() => loadData(false), 3000);
     return () => clearInterval(syncInterval);
-  }, []);
+  }, [loadData]);
 
   useEffect(() => { 
     localStorage.setItem('al-hadiqa-interactions-v7', JSON.stringify(interactions)); 
@@ -105,7 +112,7 @@ const App: React.FC = () => {
         dislikedIds: p.dislikedIds.filter(x => x !== id) 
       };
     });
-    showToast("PAYLOAD LIKED ✨");
+    showToast("تم الحفظ في الأرشيف ✨");
   };
 
   const handleDislike = (id: string) => {
@@ -116,70 +123,84 @@ const App: React.FC = () => {
         likedIds: p.likedIds.filter(x => x !== id) 
       };
     });
-    showToast("ARCHIVE EXCLUDED ⚰️");
+    showToast("تم الاستبعاد ⚰️");
     setSelectedShort(null); setSelectedLong(null);
   };
 
-  const renderContent = () => {
-    const activeVideos = rawVideos.filter(v => !interactions.dislikedIds.includes(v.id));
-    const longsOnly = activeVideos.filter(v => v.type === 'long');
-
-    switch(currentView) {
-      case AppView.OFFLINE:
-        return <Suspense fallback={null}><OfflinePage allVideos={rawVideos} interactions={interactions} onPlayShort={(v, l) => setSelectedShort({video:v, list:l})} onPlayLong={(v) => setSelectedLong({video:v, list:longsOnly})} onBack={() => setCurrentView(AppView.HOME)} onUpdateInteractions={setInteractions} /></Suspense>;
-      case AppView.CATEGORY:
-        return <Suspense fallback={null}><CategoryPage category={activeCategory} allVideos={activeVideos} isSaved={interactions.savedCategoryNames.includes(activeCategory)} onToggleSave={() => setInteractions(p => ({...p, savedCategoryNames: p.savedCategoryNames.includes(activeCategory) ? p.savedCategoryNames.filter(c => c !== activeCategory) : [...p.savedCategoryNames, activeCategory]}))} onPlayShort={(v, l) => setSelectedShort({video:v, list:l})} onPlayLong={(v) => setSelectedLong({video:v, list:longsOnly})} onBack={() => setCurrentView(AppView.HOME)} /></Suspense>;
-      case AppView.ADMIN:
-        return <Suspense fallback={null}><AdminDashboard onClose={() => setCurrentView(AppView.HOME)} categories={OFFICIAL_CATEGORIES} initialVideos={rawVideos} /></Suspense>;
-      case AppView.TREND:
-        return <Suspense fallback={null}><TrendPage onPlayShort={(v, l) => setSelectedShort({video:v, list:l})} onPlayLong={(v) => setSelectedLong({video:v, list:longsOnly})} excludedIds={interactions.dislikedIds} allVideos={rawVideos} /></Suspense>;
-      case AppView.LIKES:
-        return <SavedPage savedIds={interactions.likedIds} savedCategories={[]} allVideos={rawVideos} onPlayShort={(v, l) => setSelectedShort({video:v, list:l})} onPlayLong={(v) => setSelectedLong({video:v, list:longsOnly})} title="الإعجابات" onCategoryClick={(c) => { setActiveCategory(c); setCurrentView(AppView.CATEGORY); }} />;
-      case AppView.SAVED:
-        return <SavedPage savedIds={interactions.savedIds} savedCategories={interactions.savedCategoryNames} allVideos={rawVideos} onPlayShort={(v, l) => setSelectedShort({video:v, list:l})} onPlayLong={(v) => setSelectedLong({video:v, list:longsOnly})} title="المحفوظات" onCategoryClick={(c) => { setActiveCategory(c); setCurrentView(AppView.CATEGORY); }} />;
-      case AppView.HIDDEN:
-        return <HiddenVideosPage interactions={interactions} allVideos={rawVideos} onRestore={(id) => setInteractions(prev => ({...prev, dislikedIds: prev.dislikedIds.filter(x => x !== id)}))} onPlayShort={(v, l) => setSelectedShort({video:v, list:l})} onPlayLong={(v) => setSelectedLong({video:v, list:longsOnly})} />;
-      case AppView.PRIVACY:
-        return <PrivacyPage onOpenAdmin={() => setCurrentView(AppView.ADMIN)} />;
-      default:
-        return (
-          <div 
-            onTouchStart={(e) => window.scrollY <= 5 && setStartY(e.touches[0].pageY)}
-            onTouchMove={(e) => startY > 0 && setPullOffset(Math.min(e.touches[0].pageY - startY, 150))}
-            onTouchEnd={() => { if (pullOffset > 80) loadData(true); setPullOffset(0); setStartY(0); }}
-            className="relative transition-transform duration-200"
-            style={{ transform: `translateY(${pullOffset}px)` }}
-          >
-            {pullOffset > 30 && (
-              <div className="absolute -top-12 left-0 right-0 flex justify-center items-center">
-                <div className="w-10 h-10 rounded-full border-4 border-[#00f3ff] border-t-transparent animate-spin shadow-[0_0_15px_#00f3ff]"></div>
-              </div>
-            )}
-            <MainContent 
-              videos={activeVideos} 
-              categoriesList={OFFICIAL_CATEGORIES} 
-              interactions={interactions}
-              onPlayShort={(v, l) => setSelectedShort({video:v, list:l.filter(x => x.type === 'short')})}
-              onPlayLong={(v, l) => setSelectedLong({video:v, list:l.filter(x => x.type === 'long')})}
-              onCategoryClick={(c: string) => { setActiveCategory(c); setCurrentView(AppView.CATEGORY); }}
-              onHardRefresh={() => loadData(true)}
-              onOfflineClick={() => setCurrentView(AppView.OFFLINE)}
-              loading={loading}
-              isOverlayActive={isOverlayActive}
-              onLike={handleLikeToggle}
-            />
-          </div>
-        );
-    }
+  const markAsPlayed = (id: string) => {
+    setPlayedIds(prev => [...new Set([...prev, id])]);
   };
 
   return (
-    <div className="min-h-screen bg-black text-white selection:bg-[#00f3ff] selection:text-black">
-      <AppBar onViewChange={setCurrentView} onRefresh={() => loadData(false)} currentView={currentView} />
-      <main className="pt-20 max-w-lg mx-auto overflow-x-hidden">{renderContent()}</main>
+    <div className="min-h-screen bg-black text-white selection:bg-[#ff003c] selection:text-white">
+      <AppBar onViewChange={setCurrentView} onRefresh={() => loadData(true)} currentView={currentView} />
+
+      <main className="pt-20 max-w-lg mx-auto overflow-x-hidden">
+        {currentView === AppView.ADMIN ? (
+          <Suspense fallback={null}>
+            <AdminDashboard 
+              onClose={() => setCurrentView(AppView.HOME)} 
+              categories={OFFICIAL_CATEGORIES} 
+              initialVideos={rawVideos}
+              errors={systemErrors}
+            />
+          </Suspense>
+        ) : (
+          (() => {
+            const activeVideos = rawVideos.filter(v => !interactions.dislikedIds.includes(v.id));
+            const longsOnly = activeVideos.filter(v => v.type === 'long');
+
+            switch(currentView) {
+              case AppView.OFFLINE:
+                return <Suspense fallback={null}><OfflinePage allVideos={rawVideos} interactions={interactions} onPlayShort={(v, l) => { setSelectedShort({video:v, list:l}); markAsPlayed(v.id); }} onPlayLong={(v) => { setSelectedLong({video:v, list:longsOnly}); markAsPlayed(v.id); }} onBack={() => setCurrentView(AppView.HOME)} onUpdateInteractions={setInteractions} /></Suspense>;
+              case AppView.CATEGORY:
+                return <Suspense fallback={null}><CategoryPage category={activeCategory} allVideos={activeVideos} isSaved={interactions.savedCategoryNames.includes(activeCategory)} onToggleSave={() => setInteractions(p => ({...p, savedCategoryNames: p.savedCategoryNames.includes(activeCategory) ? p.savedCategoryNames.filter(c => c !== activeCategory) : [...p.savedCategoryNames, activeCategory]}))} onPlayShort={(v, l) => { setSelectedShort({video:v, list:l}); markAsPlayed(v.id); }} onPlayLong={(v) => { setSelectedLong({video:v, list:longsOnly}); markAsPlayed(v.id); }} onBack={() => setCurrentView(AppView.HOME)} /></Suspense>;
+              case AppView.TREND:
+                return <Suspense fallback={null}><TrendPage onPlayShort={(v, l) => { setSelectedShort({video:v, list:l}); markAsPlayed(v.id); }} onPlayLong={(v) => { setSelectedLong({video:v, list:longsOnly}); markAsPlayed(v.id); }} excludedIds={interactions.dislikedIds} allVideos={rawVideos} /></Suspense>;
+              case AppView.LIKES:
+                return <SavedPage savedIds={interactions.likedIds} savedCategories={[]} allVideos={rawVideos} onPlayShort={(v, l) => { setSelectedShort({video:v, list:l}); markAsPlayed(v.id); }} onPlayLong={(v) => { setSelectedLong({video:v, list:longsOnly}); markAsPlayed(v.id); }} title="الإعجابات" onCategoryClick={(c) => { setActiveCategory(c); setCurrentView(AppView.CATEGORY); }} />;
+              case AppView.SAVED:
+                return <SavedPage savedIds={interactions.savedIds} savedCategories={interactions.savedCategoryNames} allVideos={rawVideos} onPlayShort={(v, l) => { setSelectedShort({video:v, list:l}); markAsPlayed(v.id); }} onPlayLong={(v) => { setSelectedLong({video:v, list:longsOnly}); markAsPlayed(v.id); }} title="المحفوظات" onCategoryClick={(c) => { setActiveCategory(c); setCurrentView(AppView.CATEGORY); }} />;
+              case AppView.HIDDEN:
+                return <HiddenVideosPage interactions={interactions} allVideos={rawVideos} onRestore={(id) => setInteractions(prev => ({...prev, dislikedIds: prev.dislikedIds.filter(x => x !== id)}))} onPlayShort={(v, l) => { setSelectedShort({video:v, list:l}); markAsPlayed(v.id); }} onPlayLong={(v) => { setSelectedLong({video:v, list:longsOnly}); markAsPlayed(v.id); }} />;
+              case AppView.PRIVACY:
+                return <PrivacyPage onOpenAdmin={() => setCurrentView(AppView.ADMIN)} />;
+              default:
+                return (
+                  <div 
+                    onTouchStart={(e) => window.scrollY <= 5 && setStartY(e.touches[0].pageY)}
+                    onTouchMove={(e) => startY > 0 && setPullOffset(Math.min(e.touches[0].pageY - startY, 150))}
+                    onTouchEnd={() => { if (pullOffset > 80) loadData(true); setPullOffset(0); setStartY(0); }}
+                    className="relative transition-transform duration-200"
+                    style={{ transform: `translateY(${pullOffset}px)` }}
+                  >
+                    <MainContent 
+                      videos={activeVideos} 
+                      categoriesList={OFFICIAL_CATEGORIES} 
+                      interactions={interactions}
+                      onPlayShort={(v, l) => { setSelectedShort({video:v, list:l.filter(x => x.type === 'short')}); markAsPlayed(v.id); }}
+                      onPlayLong={(v, l) => { setSelectedLong({video:v, list:l.filter(x => x.type === 'long')}); markAsPlayed(v.id); }}
+                      onCategoryClick={(c: string) => { setActiveCategory(c); setCurrentView(AppView.CATEGORY); }}
+                      onHardRefresh={() => loadData(true)}
+                      onOfflineClick={() => setCurrentView(AppView.OFFLINE)}
+                      loading={loading}
+                      isOverlayActive={isOverlayActive}
+                      onLike={handleLikeToggle}
+                      pullOffset={pullOffset}
+                      isSyncing={isSyncing}
+                      playedIds={playedIds}
+                    />
+                  </div>
+                );
+            }
+          })()
+        )}
+      </main>
+
       <Suspense fallback={null}><AIOracle /></Suspense>
+      
       {toast && (
-        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[1100] bg-[#00f3ff] px-6 py-2 rounded-full font-black shadow-[0_0_20px_#00f3ff] text-black text-[10px] border border-white/20 animate-in fade-in slide-in-from-top-4 tech-font uppercase tracking-widest">
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[1100] bg-[#ff003c] px-6 py-2 rounded-full font-black shadow-[0_0_20px_#ff003c] text-white text-[10px] border border-white/20 animate-in fade-in slide-in-from-top-4 tech-font uppercase tracking-widest">
           {toast}
         </div>
       )}
@@ -203,7 +224,7 @@ const App: React.FC = () => {
             onLike={() => handleLikeToggle(selectedLong.video.id)} onDislike={() => handleDislike(selectedLong.video.id)} 
             onCategoryClick={(c) => { setActiveCategory(c); setCurrentView(AppView.CATEGORY); setSelectedLong(null); }}
             onSave={() => setInteractions(p => ({...p, savedIds: [...new Set([...p.savedIds, selectedLong.video.id])]}))} 
-            onSwitchVideo={(v) => setSelectedLong(p => p ? {...p, video: v} : null)} 
+            onSwitchVideo={(v) => { setSelectedLong(p => p ? {...p, video: v} : null); markAsPlayed(v.id); }} 
             isLiked={interactions.likedIds.includes(selectedLong.video.id)} isDisliked={interactions.dislikedIds.includes(selectedLong.video.id)} 
             isSaved={interactions.savedIds.includes(selectedLong.video.id)} onProgress={(pr) => {}} 
           />
