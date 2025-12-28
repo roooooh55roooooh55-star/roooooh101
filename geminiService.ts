@@ -31,15 +31,21 @@ export async function analyzeVideoFrames(base64Image: string, fileName: string):
   return callWithRetry(async () => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const prompt = `
-      تحليل عينة فيديو مرعبة بعنوان "${fileName}".
-      المطلوب نتيجة JSON بهذا التنسيق:
+      أنت خبير في تحليل فيديوهات الرعب والظواهر الخارقة.
+      قم بتحليل هذه الصورة المستخرجة من فيديو بعنوان "${fileName}".
+      يجب أن تكون نتيجتك دقيقة بنسبة 100% وتتبع هذا التنسيق الصارم جداً (JSON):
       {
-        "title": "عنوان نيون مرعب",
-        "category": "واحد من: ${OFFICIAL_CATEGORIES_LIST}",
-        "narration": "سرد درامي قصير مقسم بـ |",
-        "horrorScore": 90,
-        "diagnostics": "تقرير الحالة"
+        "title": "عنوان نيون درامي وجذاب للغاية باللغة العربية",
+        "category": "يجب أن يكون حصراً واحداً من: ${OFFICIAL_CATEGORIES_LIST}",
+        "narration": "سرد مرعب وغامض يتكون من 3-5 جمل درامية، افصل بين كل جملة وأخرى برمز | حصراً",
+        "horrorScore": 95,
+        "diagnostics": "وصف فني موجز لما تم رصده في الصورة"
       }
+      
+      شروط إضافية:
+      1. السرد يجب أن يكون بلهجة عربية فصحى مشوقة أو لهجة مصرية درامية.
+      2. العنوان يجب أن يثير الفضول والرعب.
+      3. التصنيف يجب أن يطابق أحد التصنيفات المحددة بدقة.
     `;
 
     const response = await ai.models.generateContent({
@@ -52,16 +58,21 @@ export async function analyzeVideoFrames(base64Image: string, fileName: string):
           ]
         }
       ],
-      config: { responseMimeType: "application/json" }
+      config: { 
+        responseMimeType: "application/json",
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.9
+      }
     });
 
     return JSON.parse(response.text || "{}") as VideoAnalysisResult;
   }).catch(() => ({
-    title: "كابوس مجهول الهوية",
+    title: "كابوس غامض في الحديقة",
     category: "أهوال مرعبة",
-    narration: "ظلال تتحرك... | الصمت يقتل... | اهرب الآن.",
-    horrorScore: 66,
-    diagnostics: "تم استخدام المسح الاحتياطي."
+    narration: "شيء ما يراقبك من الظلال... | الصمت هنا ليس علامة أمان... | هل تشعر بأنفاسهم خلفك؟",
+    horrorScore: 88,
+    diagnostics: "تم استخدام المسح الاحتياطي التلقائي."
   }));
 }
 
@@ -77,9 +88,10 @@ export async function getRecommendedFeed(allVideos: Video[], interactions: UserI
     const favoriteCategories = Array.from(new Set(likedVideos.map(v => v.category)));
     
     const prompt = `
-      رتب مصفوفة المعرفات التالية بناءً على تفضيل المستخدم لهذه الأقسام: ${favoriteCategories.join(', ')}.
+      رتب مصفوفة المعرفات التالية بناءً على تفضيلات المستخدم بناءً على الأقسام التي أعجب بها: ${favoriteCategories.join(', ')}.
+      اجعل الفيديوهات الأكثر ملاءمة في البداية.
       المعرفات: ${JSON.stringify(allVideos.map(v => v.id))}
-      أرجع مصفوفة JSON فقط.
+      أرجع مصفوفة JSON فقط تحتوي على المعرفات المرتبة.
     `;
 
     const response = await ai.models.generateContent({
@@ -102,7 +114,7 @@ export async function suggestTags(title: string, category: string): Promise<stri
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `اقترح 5 أوسمة (tags) بدون علامة # لفيديو بعنوان "${title}" في قسم "${category}". أرجع مصفوفة JSON فقط.`,
+      contents: `اقترح 5 أوسمة (tags) مرعبة وفريدة لفيديو بعنوان "${title}" في قسم "${category}". أرجع مصفوفة JSON فقط.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } }

@@ -8,10 +8,7 @@ export default defineConfig({
   define: {
     // تضمن هذه الخطوة وصول المفاتيح من Netlify إلى الكود الأمامي
     'process.env.API_KEY': JSON.stringify(process.env.API_KEY),
-    'process.env': {
-      API_KEY: process.env.API_KEY,
-      ...process.env
-    }
+    'process.env': JSON.stringify(process.env)
   },
   build: {
     outDir: 'dist',

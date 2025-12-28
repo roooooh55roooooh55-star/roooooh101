@@ -24,8 +24,8 @@ export const OFFICIAL_CATEGORIES = [
   'أخطر المشاهد',
   'أهوال مرعبة',
   'رعب كوميدي',
-  'لحظات مرعبة',
-  'صدمه'
+  'صدمه',
+  'لحظات مرعبة'
 ];
 
 const App: React.FC = () => {
@@ -61,7 +61,7 @@ const App: React.FC = () => {
   };
 
   /**
-   * دالة المزامنة الصامتة: تبحث عن جديد تليجرام دون التأثير على ما يشاهده المستخدم حالياً
+   * دالة المزامنة الصامتة: تبحث عن جديد تليجرام كل 3 ثوانٍ
    */
   const silentSync = useCallback(async () => {
     try {
@@ -72,21 +72,20 @@ const App: React.FC = () => {
         setRawVideos(filtered);
       }
     } catch (err) {
-      console.warn("فشل المزامنة الصامتة");
+      // مزامنة صامتة لا تظهر أخطاء للمستخدم
     }
   }, []);
 
   /**
-   * دالة تحديث واجهة المستخدم: تطلق كل 15 ثانية لتقديم محتوى "طازج" من الأرشيف المتاح
+   * دالة تحديث واجهة المستخدم بالكامل كل 15 ثانية بمحتوى عشوائي متنوع
    */
   const refreshUI = useCallback(async () => {
     if (rawVideos.length === 0) return;
     
-    // نقوم بعمل Shuffle خفيف للمحتوى
+    // خلط المحتوى لضمان التنوع
     const shuffled = [...rawVideos].sort(() => Math.random() - 0.5);
     
     try {
-      // نطلب من Gemini أفضل ترتيب بناءً على اهتمامات المستخدم
       const recommendedOrder = await getRecommendedFeed(shuffled, interactions);
       const orderedVideos = recommendedOrder
         .map(id => shuffled.find(v => v.id === id))
@@ -103,16 +102,16 @@ const App: React.FC = () => {
   // المزامنة الصامتة كل 3 ثوانٍ
   useEffect(() => {
     silentSync();
-    const interval = setInterval(silentSync, 3000);
-    return () => clearInterval(interval);
+    const syncInterval = setInterval(silentSync, 3000);
+    return () => clearInterval(syncInterval);
   }, [silentSync]);
 
   // تحديث واجهة العرض كل 15 ثانية
   useEffect(() => {
     if (rawVideos.length > 0) {
       refreshUI();
-      const interval = setInterval(refreshUI, 15000);
-      return () => clearInterval(interval);
+      const uiInterval = setInterval(refreshUI, 15000);
+      return () => clearInterval(uiInterval);
     }
   }, [refreshUI, rawVideos.length]);
 

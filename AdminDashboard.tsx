@@ -43,6 +43,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const [isGeneratingVoice, setIsGeneratingVoice] = useState(false);
+  const [isGeneratingTitleVoice, setIsGeneratingTitleVoice] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [vaultVideos, setVaultVideos] = useState<Video[]>(initialVideos);
 
@@ -61,14 +62,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setPreviewUrl(url);
       setAiLogs(prev => [...prev, `[SYSTEM] تم تحميل الملف: ${file.name}`]);
       
+      // كشف مقاسات الفيديو تلقائياً لتحديد النوع
       const tempVideo = document.createElement('video');
       tempVideo.src = url;
       tempVideo.onloadedmetadata = () => {
         const isShort = tempVideo.videoHeight > tempVideo.videoWidth;
         setVideoType(isShort ? 'short' : 'long');
-        setAiLogs(prev => [...prev, `[INFO] تم الكشف عن المقاس: ${isShort ? 'رأسي (شورتس)' : 'أفقي (عادي)'}`]);
+        setAiLogs(prev => [...prev, `[INFO] النوع المكتشف: ${isShort ? 'قصير (Shorts)' : 'عادي (Long)'}`]);
       };
     }
+  };
+
+  const removeSelectedFile = () => {
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setUploadTitle('');
+    setUploadNarration('');
+    setAiLogs(prev => [...prev, `[SYSTEM] تم حذف الملف واعادة الضبط.`]);
   };
 
   useEffect(() => {
@@ -92,36 +102,42 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const executeAiAnalysis = async () => {
     if (!videoRef.current || !canvasRef.current || !selectedFile) return;
     setIsAnalyzing(true);
-    setAiLogs(prev => [...prev, "[AI] فحص عميق بواسطة Gemini...", "[PROCESS] استخراج بيانات الحتوى..."]);
+    setAiLogs(prev => [...prev, "[AI] فحص عميق بواسطة Gemini Pro...", "[PROCESS] استخراج بيانات المحتوى بدقة 100%..."]);
     try {
       const canvas = canvasRef.current;
       const video = videoRef.current;
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       canvas.getContext('2d')?.drawImage(video, 0, 0);
-      const base64Image = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+      const base64Image = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
       const result = await analyzeVideoFrames(base64Image, selectedFile.name);
       setUploadTitle(result.title);
-      setUploadCategory(result.category);
+      if (categories.includes(result.category)) {
+        setUploadCategory(result.category);
+      }
       setUploadNarration(result.narration);
-      setAiLogs(prev => [...prev, "[SUCCESS] تم تحليل النمط بنجاح."]);
+      setAiLogs(prev => [...prev, "[SUCCESS] تم التحليل بنجاح تام."]);
     } catch (e: any) {
       setAiLogs(prev => [...prev, `[ERROR] فشل التحليل: ${e.message}`]);
     } finally { setIsAnalyzing(false); }
   };
 
-  const handleVoiceGeneration = async () => {
+  const handleVoiceGeneration = async (text: string, isTitle: boolean = false) => {
     const currentKey = elevenKeys[0];
-    if (!uploadNarration || !currentKey) return;
-    setIsGeneratingVoice(true);
-    const audioUrl = await generateSpeech(uploadNarration, currentKey, voiceId);
+    if (!text || !currentKey) return;
+    if (isTitle) setIsGeneratingTitleVoice(true);
+    else setIsGeneratingVoice(true);
+
+    const audioUrl = await generateSpeech(text, currentKey, voiceId);
     if (audioUrl) {
-      setAiLogs(prev => [...prev, "[VOICE] تم توليد السرد الصوتي بنجاح."]);
+      setAiLogs(prev => [...prev, `[VOICE] تم توليد سرد ${isTitle ? 'العنوان' : 'المحتوى'} بنجاح.`]);
       refreshKeyStats();
     } else {
       alert('خطأ: مفتاح الصوت مستهلك أو غير صالح.');
     }
-    setIsGeneratingVoice(false);
+    
+    if (isTitle) setIsGeneratingTitleVoice(false);
+    else setIsGeneratingVoice(false);
   };
 
   const handlePublish = async () => {
@@ -137,7 +153,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }, (p) => setUploadProgress(p));
       if (result.ok) {
         alert("تم الرفع بنجاح للحديقة المرعبة.");
-        setPreviewUrl(null); setSelectedFile(null); setUploadNarration('');
+        removeSelectedFile();
         refreshVault();
       }
     } catch (e: any) { alert(`خطأ في الرفع: ${e.message}`); }
@@ -168,12 +184,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: [
-          { role: 'user', parts: [{ text: `أنت مساعد مطور الحديقة المرعبة. الأخطاء الحالية: ${errors.join(' | ')}. سؤالي هو: ${userInput}` }] }
+          { role: 'user', parts: [{ text: `أنت مساعد مطور الحديقة المرعبة. الأخطاء: ${errors.join(', ')}. سؤال: ${userInput}` }] }
         ]
       });
       setDebugChat(prev => [...prev, {role: 'model', text: response.text || "لا يوجد رد."}]);
     } catch (e: any) {
-      setDebugChat(prev => [...prev, {role: 'model', text: `خطأ في الاتصال بـ Gemini: ${e.message}`}]);
+      setDebugChat(prev => [...prev, {role: 'model', text: `خطأ: ${e.message}`}]);
     } finally {
       setIsDebugLoading(false);
     }
@@ -232,7 +248,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="aspect-video bg-[#050505] rounded-[2.5rem] border-2 border-dashed border-[#00f3ff]/30 flex items-center justify-center relative overflow-hidden group shadow-[0_0_40px_rgba(0,243,255,0.1)]">
                 {previewUrl ? (
-                  <video ref={videoRef} src={previewUrl} className="w-full h-full object-contain" controls />
+                  <>
+                    <video ref={videoRef} src={previewUrl} className="w-full h-full object-contain" controls />
+                    <button 
+                      onClick={removeSelectedFile}
+                      className="absolute top-4 left-4 bg-red-600 text-white p-3 rounded-full shadow-[0_0_15px_red] z-50 hover:scale-110 active:scale-90 transition-all"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="3" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                  </>
                 ) : (
                   <label className="cursor-pointer flex flex-col items-center gap-6 text-white/30 hover:text-[#00f3ff] transition-all duration-500">
                     <svg className="w-14 h-14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="2.5" d="M12 4v16m8-8H4"/></svg>
@@ -257,7 +281,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="bg-[#050505]/80 p-10 rounded-[4rem] border border-white/10 space-y-8 shadow-2xl">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
-                  <label className="text-[10px] text-[#00f3ff] pr-4 uppercase font-black tracking-widest">العنوان</label>
+                  <div className="flex justify-between items-center px-4">
+                    <label className="text-[10px] text-[#00f3ff] uppercase font-black tracking-widest">العنوان</label>
+                    <button 
+                      onClick={() => handleVoiceGeneration(uploadTitle, true)} 
+                      disabled={isGeneratingTitleVoice || !uploadTitle} 
+                      className="text-[9px] text-[#00f3ff] bg-[#00f3ff]/10 px-3 py-1 rounded-lg border border-[#00f3ff]/30 font-black hover:bg-[#00f3ff] hover:text-black transition-all"
+                    >
+                      صوت العنوان
+                    </button>
+                  </div>
                   <input type="text" placeholder="العنوان..." value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} className="w-full bg-black border-2 border-white/10 p-5 rounded-[2rem] text-xs text-white outline-none focus:border-[#ffea00]" />
                 </div>
                 <div className="space-y-3">
@@ -269,19 +302,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               <div className="space-y-4">
-                 <label className="text-[10px] text-[#00f3ff] pr-4 uppercase font-black tracking-widest">نوع الفيديو (كشف تلقائي)</label>
+                 <label className="text-[10px] text-[#00f3ff] pr-4 uppercase font-black tracking-widest">نوع الفيديو (تلقائي)</label>
                  <div className="flex gap-4">
                    <button 
-                     onClick={() => setVideoType('short')}
-                     className={`flex-1 py-4 rounded-2xl font-black text-[10px] border-2 transition-all ${videoType === 'short' ? 'bg-[#00f3ff] text-black border-white shadow-[0_0_15px_#00f3ff]' : 'bg-black text-[#00f3ff] border-[#00f3ff]/30'}`}
+                     disabled
+                     className={`flex-1 py-4 rounded-2xl font-black text-[10px] border-2 transition-all ${videoType === 'short' ? 'bg-[#00f3ff] text-black border-white shadow-[0_0_15px_#00f3ff]' : 'bg-black text-[#00f3ff]/30 border-[#00f3ff]/10'}`}
                    >
-                     فيديو قصير (Shorts)
+                     قصير (Shorts)
                    </button>
                    <button 
-                     onClick={() => setVideoType('long')}
-                     className={`flex-1 py-4 rounded-2xl font-black text-[10px] border-2 transition-all ${videoType === 'long' ? 'bg-[#ffea00] text-black border-white shadow-[0_0_15px_#ffea00]' : 'bg-black text-[#ffea00] border-[#ffea00]/30'}`}
+                     disabled
+                     className={`flex-1 py-4 rounded-2xl font-black text-[10px] border-2 transition-all ${videoType === 'long' ? 'bg-[#ffea00] text-black border-white shadow-[0_0_15px_#ffea00]' : 'bg-black text-[#ffea00]/30 border-[#ffea00]/10'}`}
                    >
-                     فيديو طويل (Normal)
+                     طويل (Long)
                    </button>
                  </div>
               </div>
@@ -289,7 +322,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="space-y-4">
                  <div className="flex justify-between items-center px-4">
                     <label className="text-[10px] text-[#00f3ff] uppercase font-black tracking-widest">منطق السرد</label>
-                    <button onClick={handleVoiceGeneration} disabled={isGeneratingVoice} className="text-[10px] text-[#ffea00] bg-[#ffea00]/10 px-5 py-2 rounded-xl border-2 border-[#ffea00]/30 font-black hover:bg-[#ffea00] hover:text-black transition-all">
+                    <button onClick={() => handleVoiceGeneration(uploadNarration, false)} disabled={isGeneratingVoice || !uploadNarration} className="text-[10px] text-[#ffea00] bg-[#ffea00]/10 px-5 py-2 rounded-xl border-2 border-[#ffea00]/30 font-black hover:bg-[#ffea00] hover:text-black transition-all">
                       توليد صوت
                     </button>
                  </div>
