@@ -92,7 +92,8 @@ const App: React.FC = () => {
 
   useEffect(() => {
     loadData(true);
-    const syncInterval = setInterval(() => loadData(false), 3000);
+    // تقليل وتيرة التحديث التلقائي لتجنب rate-limiting من تليجرام
+    const syncInterval = setInterval(() => loadData(false), 30000);
     return () => clearInterval(syncInterval);
   }, [loadData]);
 

@@ -45,7 +45,7 @@ export const formatBigNumber = (num: number) => {
 const CategoryMarquee: React.FC<{ categories: string[], onCategoryClick: (c: string) => void }> = ({ categories, onCategoryClick }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   
-  // تكرار الأقسام 5 مرات لضمان عدم وجود فراغات أثناء السحب السريع
+  // تكرار الأقسام لضمان السحب اللانهائي
   const infiniteCategories = useMemo(() => {
     return [...categories, ...categories, ...categories, ...categories, ...categories];
   }, [categories]);
@@ -55,7 +55,6 @@ const CategoryMarquee: React.FC<{ categories: string[], onCategoryClick: (c: str
     if (!el) return;
     
     const singleWidth = el.scrollWidth / 5;
-    // إذا وصل المستخدم لنهاية المجموعات الوسطى، أعده للبداية بصمت
     if (el.scrollLeft >= singleWidth * 3) {
       el.scrollLeft = singleWidth;
     } else if (el.scrollLeft <= 0) {
@@ -66,7 +65,6 @@ const CategoryMarquee: React.FC<{ categories: string[], onCategoryClick: (c: str
   useEffect(() => {
     const el = containerRef.current;
     if (el) {
-      // ابدأ من المنتصف
       el.scrollLeft = (el.scrollWidth / 5) * 2;
     }
   }, []);
@@ -76,7 +74,7 @@ const CategoryMarquee: React.FC<{ categories: string[], onCategoryClick: (c: str
       <div 
         ref={containerRef}
         onScroll={handleScroll}
-        className="flex gap-4 px-4 overflow-x-auto scrollbar-hide select-none cursor-grab active:cursor-grabbing w-full"
+        className="flex gap-4 px-4 overflow-x-auto scrollbar-hide select-none cursor-grab active:cursor-grabbing w-full h-full items-center"
         style={{ scrollBehavior: 'auto' }}
       >
         {infiniteCategories.map((cat, idx) => (
@@ -189,7 +187,6 @@ export const InteractiveMarquee: React.FC<{
   const requestRef = useRef<number>(null);
   const [isInteracting, setIsInteracting] = useState(false);
 
-  // تكرار الفيديوهات 4 مرات لضمان عدم وجود فراغات أثناء السحب
   const displayVideos = useMemo(() => {
     if (!videos || videos.length === 0) return [];
     return [...videos, ...videos, ...videos, ...videos];
@@ -224,7 +221,6 @@ export const InteractiveMarquee: React.FC<{
         onTouchStart={() => setIsInteracting(true)}
         onTouchEnd={() => setIsInteracting(false)}
         onScroll={() => {
-          // التعامل مع القفزة اللانهائية يدوياً عند السحب
           const el = containerRef.current;
           if (!el) return;
           const quarterWidth = el.scrollWidth / 4;
@@ -275,7 +271,6 @@ const MainContent: React.FC<any> = ({
 
   return (
     <div className="flex flex-col pb-32 w-full bg-black min-h-screen" dir="rtl">
-      {/* هيدر الحديقة */}
       <header className="flex items-center justify-between py-3 bg-black/95 backdrop-blur-3xl sticky top-0 z-[110] px-6 border-b border-white/5 h-16">
         <div className="flex items-center gap-4" onClick={onHardRefresh}>
           <img src={LOGO_URL} className={`w-10 h-10 rounded-full border-2 ${isSyncing ? 'border-[#ffea00] shadow-[0_0_15px_#ffea00]' : 'border-red-600 shadow-[0_0_15px_#ff0000]'} relative z-10`} />
@@ -291,7 +286,6 @@ const MainContent: React.FC<any> = ({
         </button>
       </header>
 
-      {/* شريط الأقسام التفاعلي اللانهائي الجديد */}
       <CategoryMarquee categories={categoriesList} onCategoryClick={onCategoryClick} />
 
       <div className="pt-6 space-y-8">

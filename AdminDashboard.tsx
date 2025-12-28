@@ -331,7 +331,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
              <div className="bg-[#00f3ff]/10 p-6 rounded-[2.5rem] border border-[#00f3ff]/30">
                 <h3 className="text-[#ffea00] font-black text-sm mb-4 uppercase italic tracking-widest">سجل أخطاء الحديقة المرعبة</h3>
                 <div className="h-32 overflow-y-auto bg-black/60 rounded-xl p-4 font-mono text-[10px] text-[#00f3ff] space-y-2">
-                   {errors.length > 0 ? errors.map((err, i) => <div key={i}>> {err}</div>) : "بوابة الحديقة مستقرة بالكامل."}
+                   {errors.length > 0 ? errors.map((err, i) => <div key={i}>{'>>'} {err}</div>) : "بوابة الحديقة مستقرة بالكامل."}
                 </div>
              </div>
 

@@ -123,7 +123,8 @@ const ShortsPlayerOverlay: React.FC<ShortsPlayerOverlayProps> = ({
                 src={videoUrls[video.id]} 
                 muted={isMuted}
                 className="h-full w-full object-cover contrast-110 saturate-125"
-                playsInline loop
+                playsInline loop autoPlay
+                preload="auto"
                 onTimeUpdate={(e) => {
                   if (idx === currentIndex) {
                     const p = e.currentTarget.currentTime / e.currentTarget.duration;
@@ -141,7 +142,7 @@ const ShortsPlayerOverlay: React.FC<ShortsPlayerOverlayProps> = ({
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
 
-              {/* زر القسم - أعلى الشمال (جديد) */}
+              {/* زر القسم - أعلى الشمال (جديد وبارز) */}
               <button 
                 onClick={() => onCategoryClick(video.category)} 
                 className="px-5 py-3 rounded-2xl bg-black/70 border-2 border-red-600 text-red-600 shadow-[0_0_25px_red] backdrop-blur-3xl text-[12px] font-black italic transition-all active:scale-90 hover:bg-red-600 hover:text-white"

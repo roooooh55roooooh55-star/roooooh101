@@ -6,6 +6,9 @@ const CHANNEL_ID = "-1003563010631";
 
 const urlCache = new Map<string, {url: string, expiry: number}>();
 
+/**
+ * دالة جلب رابط الفيديو المباشر مع معالجة محسنة للأخطاء
+ */
 export const getDirectVideoUrl = async (fileId: string): Promise<string | null> => {
   if (!fileId) return null;
   const cached = urlCache.get(fileId);
@@ -13,6 +16,8 @@ export const getDirectVideoUrl = async (fileId: string): Promise<string | null> 
 
   try {
     const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`);
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    
     const data = await response.json();
     if (data.ok && data.result?.file_path) {
       const url = `https://api.telegram.org/file/bot${BOT_TOKEN}/${data.result.file_path}`;
@@ -21,14 +26,28 @@ export const getDirectVideoUrl = async (fileId: string): Promise<string | null> 
     }
     return null;
   } catch (error) {
-    console.error("خطأ في جلب بوابة الفيديو من الحديقة المرعبة:", error);
+    console.warn("فشل جلب رابط الفيديو من تليجرام، سيتم المحاولة لاحقاً:", error);
     return null;
   }
 };
 
+/**
+ * جلب فيديوهات القناة مع معالجة صامتة لخطأ Failed to fetch
+ */
 export const fetchChannelVideos = async (): Promise<Video[]> => {
   try {
-    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=-1&limit=50&allowed_updates=["channel_post","message"]`);
+    // استخدام timeout لمنع تعليق الطلب في المتصفح
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=-1&limit=50`, {
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+
+    if (!response.ok) throw new Error(`Telegram API returned ${response.status}`);
+
     const data = await response.json();
     const fetchedVideos: Video[] = [];
 
@@ -73,7 +92,8 @@ export const fetchChannelVideos = async (): Promise<Video[]> => {
     localStorage.setItem('horror_vault', JSON.stringify(finalVideos));
     return finalVideos;
   } catch (error) {
-    console.error("خطأ في الاتصال بمستودع الحديقة المرعبة:", error);
+    // في حالة فشل الاتصال، نعتمد كلياً على البيانات المخزنة سابقاً
+    console.error("خطأ في الاتصال بمستودع الحديقة المرعبة (يتم استخدام الأرشيف المحلي):", error);
     const cached = localStorage.getItem('horror_vault');
     return cached ? JSON.parse(cached) : [];
   }
