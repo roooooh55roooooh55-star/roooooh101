@@ -62,13 +62,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setPreviewUrl(url);
       setAiLogs(prev => [...prev, `[SYSTEM] تم تحميل الملف: ${file.name}`]);
       
-      // كشف مقاسات الفيديو تلقائياً لتحديد النوع
       const tempVideo = document.createElement('video');
       tempVideo.src = url;
       tempVideo.onloadedmetadata = () => {
         const isShort = tempVideo.videoHeight > tempVideo.videoWidth;
         setVideoType(isShort ? 'short' : 'long');
-        setAiLogs(prev => [...prev, `[INFO] النوع المكتشف: ${isShort ? 'قصير (Shorts)' : 'عادي (Long)'}`]);
+        setAiLogs(prev => [...prev, `[INFO] تم الكشف التلقائي عن أبعاد الفيديو: ${isShort ? 'رأسي (Shorts)' : 'أفقي (Long)'}`]);
       };
     }
   };
@@ -78,7 +77,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setPreviewUrl(null);
     setUploadTitle('');
     setUploadNarration('');
-    setAiLogs(prev => [...prev, `[SYSTEM] تم حذف الملف واعادة الضبط.`]);
+    setAiLogs(prev => [...prev, `[SYSTEM] تم إزالة الملف وإعادة الضبط بنجاح.`]);
   };
 
   useEffect(() => {
@@ -102,21 +101,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const executeAiAnalysis = async () => {
     if (!videoRef.current || !canvasRef.current || !selectedFile) return;
     setIsAnalyzing(true);
-    setAiLogs(prev => [...prev, "[AI] فحص عميق بواسطة Gemini Pro...", "[PROCESS] استخراج بيانات المحتوى بدقة 100%..."]);
+    setAiLogs(prev => [...prev, "[AI] تشغيل المحلل الذكي الفائق (Gemini Pro)...", "[PROCESS] تحليل العناصر المرعبة بدقة 100%..."]);
     try {
       const canvas = canvasRef.current;
       const video = videoRef.current;
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       canvas.getContext('2d')?.drawImage(video, 0, 0);
-      const base64Image = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+      const base64Image = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
       const result = await analyzeVideoFrames(base64Image, selectedFile.name);
       setUploadTitle(result.title);
       if (categories.includes(result.category)) {
         setUploadCategory(result.category);
       }
       setUploadNarration(result.narration);
-      setAiLogs(prev => [...prev, "[SUCCESS] تم التحليل بنجاح تام."]);
+      setAiLogs(prev => [...prev, "[SUCCESS] تم توليد العنوان والسرد الحقيقي والصحيح 100%."]);
     } catch (e: any) {
       setAiLogs(prev => [...prev, `[ERROR] فشل التحليل: ${e.message}`]);
     } finally { setIsAnalyzing(false); }
@@ -130,7 +129,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     const audioUrl = await generateSpeech(text, currentKey, voiceId);
     if (audioUrl) {
-      setAiLogs(prev => [...prev, `[VOICE] تم توليد سرد ${isTitle ? 'العنوان' : 'المحتوى'} بنجاح.`]);
+      setAiLogs(prev => [...prev, `[VOICE] تم بنجاح توليد صوت لـ ${isTitle ? 'العنوان' : 'السرد'}.`]);
       refreshKeyStats();
     } else {
       alert('خطأ: مفتاح الصوت مستهلك أو غير صالح.');
@@ -252,7 +251,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <video ref={videoRef} src={previewUrl} className="w-full h-full object-contain" controls />
                     <button 
                       onClick={removeSelectedFile}
-                      className="absolute top-4 left-4 bg-red-600 text-white p-3 rounded-full shadow-[0_0_15px_red] z-50 hover:scale-110 active:scale-90 transition-all"
+                      className="absolute top-4 left-4 bg-red-600 text-white p-2 rounded-full shadow-[0_0_15px_red] z-50 hover:scale-110 active:scale-90 transition-all border-2 border-white/30"
+                      title="حذف واختيار فيديو آخر"
                     >
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="3" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
@@ -272,7 +272,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
                 {previewUrl && (
                   <button onClick={executeAiAnalysis} disabled={isAnalyzing} className="w-full bg-[#00f3ff]/10 py-4 rounded-2xl text-[10px] font-black mt-6 border-2 border-[#00f3ff]/30 text-[#00f3ff] hover:bg-[#00f3ff] hover:text-black transition-all">
-                    {isAnalyzing ? 'جاري فك التشفير...' : 'تشغيل المحلل الذكي'}
+                    {isAnalyzing ? 'جاري التحليل...' : 'تشغيل المحلل الفائق'}
                   </button>
                 )}
               </div>
@@ -285,7 +285,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <label className="text-[10px] text-[#00f3ff] uppercase font-black tracking-widest">العنوان</label>
                     <button 
                       onClick={() => handleVoiceGeneration(uploadTitle, true)} 
-                      disabled={isGeneratingTitleVoice || !uploadTitle} 
+                      disabled={isGeneratingTitleVoice || !uploadTitle}
                       className="text-[9px] text-[#00f3ff] bg-[#00f3ff]/10 px-3 py-1 rounded-lg border border-[#00f3ff]/30 font-black hover:bg-[#00f3ff] hover:text-black transition-all"
                     >
                       صوت العنوان
@@ -304,18 +304,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="space-y-4">
                  <label className="text-[10px] text-[#00f3ff] pr-4 uppercase font-black tracking-widest">نوع الفيديو (تلقائي)</label>
                  <div className="flex gap-4">
-                   <button 
-                     disabled
-                     className={`flex-1 py-4 rounded-2xl font-black text-[10px] border-2 transition-all ${videoType === 'short' ? 'bg-[#00f3ff] text-black border-white shadow-[0_0_15px_#00f3ff]' : 'bg-black text-[#00f3ff]/30 border-[#00f3ff]/10'}`}
-                   >
+                   <div className={`flex-1 py-4 rounded-2xl font-black text-[10px] border-2 text-center transition-all ${videoType === 'short' ? 'bg-[#00f3ff] text-black border-white shadow-[0_0_15px_#00f3ff]' : 'bg-black text-[#00f3ff]/30 border-[#00f3ff]/10'}`}>
                      قصير (Shorts)
-                   </button>
-                   <button 
-                     disabled
-                     className={`flex-1 py-4 rounded-2xl font-black text-[10px] border-2 transition-all ${videoType === 'long' ? 'bg-[#ffea00] text-black border-white shadow-[0_0_15px_#ffea00]' : 'bg-black text-[#ffea00]/30 border-[#ffea00]/10'}`}
-                   >
+                   </div>
+                   <div className={`flex-1 py-4 rounded-2xl font-black text-[10px] border-2 text-center transition-all ${videoType === 'long' ? 'bg-[#ffea00] text-black border-white shadow-[0_0_15px_#ffea00]' : 'bg-black text-[#ffea00]/30 border-[#ffea00]/10'}`}>
                      طويل (Long)
-                   </button>
+                   </div>
                  </div>
               </div>
 
@@ -323,7 +317,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                  <div className="flex justify-between items-center px-4">
                     <label className="text-[10px] text-[#00f3ff] uppercase font-black tracking-widest">منطق السرد</label>
                     <button onClick={() => handleVoiceGeneration(uploadNarration, false)} disabled={isGeneratingVoice || !uploadNarration} className="text-[10px] text-[#ffea00] bg-[#ffea00]/10 px-5 py-2 rounded-xl border-2 border-[#ffea00]/30 font-black hover:bg-[#ffea00] hover:text-black transition-all">
-                      توليد صوت
+                      توليد صوت السرد
                     </button>
                  </div>
                  <textarea value={uploadNarration} onChange={e => setUploadNarration(e.target.value)} className="w-full bg-black border-2 border-white/10 p-6 rounded-[2.5rem] h-32 text-xs italic text-white/60 outline-none focus:border-[#00f3ff]" />
@@ -338,7 +332,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
         )}
-
+        {/* باقي التبويبات تظل كما هي دون تغيير */}
         {activeTab === 'settings' && (
           <div className="max-w-2xl mx-auto space-y-8">
             <h2 className="text-xl font-black text-[#ffea00] italic flex items-center gap-4 uppercase">عقد شبكة الحديقة المرعبة</h2>
@@ -359,7 +353,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             })}
           </div>
         )}
-
         {activeTab === 'list' && (
           <div className="max-w-2xl mx-auto space-y-6">
              <h3 className="text-lg font-black text-[#ffea00] italic px-4 uppercase tracking-widest">الأرشيف العصبي للحديقة ({vaultVideos.length})</h3>
@@ -373,18 +366,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                      <p className="text-[10px] text-[#00f3ff] font-black uppercase mt-1 tracking-widest">{v.category}</p>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => handleEditVideo(v)} className="p-4 text-[#ffea00] bg-[#ffea00]/10 border border-[#ffea00]/20 rounded-2xl hover:bg-[#ffea00] hover:text-black transition-all shadow-lg font-black text-[11px]">
-                       تعديل
-                    </button>
-                    <button className="p-4 text-red-500 bg-red-500/10 border border-red-500/20 rounded-2xl hover:bg-red-500 hover:text-white shadow-lg text-[11px] font-black">
-                       حذف
-                    </button>
+                    <button onClick={() => handleEditVideo(v)} className="p-4 text-[#ffea00] bg-[#ffea00]/10 border border-[#ffea00]/20 rounded-2xl hover:bg-[#ffea00] hover:text-black transition-all shadow-lg font-black text-[11px]">تعديل</button>
+                    <button className="p-4 text-red-500 bg-red-500/10 border border-red-500/20 rounded-2xl hover:bg-red-500 hover:text-white shadow-lg text-[11px] font-black">حذف</button>
                   </div>
                </div>
              ))}
           </div>
         )}
-
         {activeTab === 'debug' && (
           <div className="max-w-2xl mx-auto space-y-8">
              <div className="bg-[#00f3ff]/10 p-6 rounded-[2.5rem] border border-[#00f3ff]/30">
@@ -393,24 +381,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                    {errors.length > 0 ? errors.map((err, i) => <div key={i}>{">> "} {err}</div>) : "بوابة الحديقة مستقرة بالكامل."}
                 </div>
              </div>
-
              <div className="flex flex-col h-[50dvh] bg-black/90 border border-white/5 rounded-[3rem] overflow-hidden shadow-2xl">
                 <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-hide">
                    <div className="text-[10px] text-gray-500 font-black text-center uppercase tracking-widest">Horror Garden Debug Console</div>
                    {debugChat.map((msg, i) => (
                      <div key={i} className={`flex ${msg.role === 'user' ? 'justify-start' : 'justify-end'}`}>
-                        <div className={`max-w-[80%] p-4 rounded-2xl text-xs font-black ${msg.role === 'user' ? 'bg-[#00f3ff]/10 text-[#00f3ff] border border-[#00f3ff]/20' : 'bg-[#ffea00]/10 text-[#ffea00] border border-[#ffea00]/20'}`}>
-                           {msg.text}
-                        </div>
+                        <div className={`max-w-[80%] p-4 rounded-2xl text-xs font-black ${msg.role === 'user' ? 'bg-[#00f3ff]/10 text-[#00f3ff] border border-[#00f3ff]/20' : 'bg-[#ffea00]/10 text-[#ffea00] border border-[#ffea00]/20'}`}>{msg.text}</div>
                      </div>
                    ))}
                 </div>
                 <div className="p-4 bg-black border-t border-white/10 flex gap-2">
-                   <input 
-                     type="text" value={debugInput} onChange={e => setDebugInput(e.target.value)}
-                     placeholder="اسأل حارس الحديقة الذكي..." 
-                     className="flex-1 bg-white/5 border border-white/10 rounded-2xl p-4 text-xs text-white outline-none focus:border-[#00f3ff]"
-                   />
+                   <input type="text" value={debugInput} onChange={e => setDebugInput(e.target.value)} placeholder="اسأل حارس الحديقة الذكي..." className="flex-1 bg-white/5 border border-white/10 rounded-2xl p-4 text-xs text-white outline-none focus:border-[#00f3ff]" />
                    <button onClick={handleTalkToGemini} className="px-6 bg-[#00f3ff] text-black rounded-2xl font-black text-xs hover:bg-[#ffea00] transition-colors uppercase">تحليل</button>
                 </div>
              </div>

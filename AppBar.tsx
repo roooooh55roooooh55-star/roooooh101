@@ -59,7 +59,7 @@ const AppBar: React.FC<AppBarProps> = ({ onViewChange, onRefresh, currentView })
         className="relative group active:scale-95 transition-all duration-700 mx-1"
       >
         <div className="absolute inset-0 bg-red-600 rounded-full blur-xl opacity-30 group-hover:opacity-100 transition-opacity animate-pulse"></div>
-        <div className="relative z-10 w-11 h-11 sm:w-13 sm:h-13 rounded-full border-[3px] border-red-600 shadow-[0_0_15px_#ff0000] overflow-hidden flex items-center justify-center bg-black transition-transform group-hover:scale-105">
+        <div className="relative z-10 w-11 h-11 sm:w-12 sm:h-12 rounded-full border-[3px] border-red-600 shadow-[0_0_15px_#ff0000] overflow-hidden flex items-center justify-center bg-black transition-transform group-hover:scale-105">
           <img src={LOGO_URL} className="w-full h-full object-cover" alt="الحديقة المرعبة" />
         </div>
       </button>
