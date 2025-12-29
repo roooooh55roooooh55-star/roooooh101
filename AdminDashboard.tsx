@@ -67,7 +67,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       tempVideo.onloadedmetadata = () => {
         const isShort = tempVideo.videoHeight > tempVideo.videoWidth;
         setVideoType(isShort ? 'short' : 'long');
-        setAiLogs(prev => [...prev, `[INFO] تم الكشف التلقائي عن أبعاد الفيديو: ${isShort ? 'رأسي (Shorts)' : 'أفقي (Long)'}`]);
+        setAiLogs(prev => [...prev, `[INFO] تم الكشف التلقائي: ${isShort ? 'رأسي (Shorts)' : 'أفقي (Long)'}`]);
       };
     }
   };
@@ -78,6 +78,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setUploadTitle('');
     setUploadNarration('');
     setAiLogs(prev => [...prev, `[SYSTEM] تم إزالة الملف وإعادة الضبط بنجاح.`]);
+  };
+
+  const playLocalPreview = (text: string) => {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'ar-SA';
+    utterance.rate = 0.9;
+    window.speechSynthesis.speak(utterance);
   };
 
   useEffect(() => {
@@ -101,7 +109,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const executeAiAnalysis = async () => {
     if (!videoRef.current || !canvasRef.current || !selectedFile) return;
     setIsAnalyzing(true);
-    setAiLogs(prev => [...prev, "[AI] تشغيل المحلل الذكي الفائق (Gemini Pro)...", "[PROCESS] تحليل العناصر المرعبة بدقة 100%..."]);
+    setAiLogs(prev => [...prev, "[AI] تشغيل المحلل الذكي (Gemini Pro)...", "[PROCESS] تحليل المحتوى وتوليد بيانات دقيقة 100%..."]);
     try {
       const canvas = canvasRef.current;
       const video = videoRef.current;
@@ -115,24 +123,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setUploadCategory(result.category);
       }
       setUploadNarration(result.narration);
-      setAiLogs(prev => [...prev, "[SUCCESS] تم توليد العنوان والسرد الحقيقي والصحيح 100%."]);
+      setAiLogs(prev => [...prev, "[SUCCESS] اكتمل التحليل وتوليد العنوان والسرد الدرامي."]);
     } catch (e: any) {
       setAiLogs(prev => [...prev, `[ERROR] فشل التحليل: ${e.message}`]);
     } finally { setIsAnalyzing(false); }
   };
 
   const handleVoiceGeneration = async (text: string, isTitle: boolean = false) => {
-    const currentKey = elevenKeys[0];
-    if (!text || !currentKey) return;
+    if (!text || elevenKeys.length === 0) return;
     if (isTitle) setIsGeneratingTitleVoice(true);
     else setIsGeneratingVoice(true);
 
-    const audioUrl = await generateSpeech(text, currentKey, voiceId);
+    const audioUrl = await generateSpeech(text, elevenKeys, voiceId);
     if (audioUrl) {
-      setAiLogs(prev => [...prev, `[VOICE] تم بنجاح توليد صوت لـ ${isTitle ? 'العنوان' : 'السرد'}.`]);
+      setAiLogs(prev => [...prev, `[VOICE] تم توليد صوت ذكي لـ ${isTitle ? 'العنوان' : 'السرد'}.`]);
       refreshKeyStats();
     } else {
-      alert('خطأ: مفتاح الصوت مستهلك أو غير صالح.');
+      alert('خطأ: جميع مفاتيح الصوت مستهلكة أو غير صالحة حالياً.');
     }
     
     if (isTitle) setIsGeneratingTitleVoice(false);
@@ -151,7 +158,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         type: videoType
       }, (p) => setUploadProgress(p));
       if (result.ok) {
-        alert("تم الرفع بنجاح للحديقة المرعبة.");
+        alert("تم حقن الفيديو بنجاح في أرشيف الحديقة المرعبة.");
         removeSelectedFile();
         refreshVault();
       }
@@ -186,9 +193,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           { role: 'user', parts: [{ text: `أنت مساعد مطور الحديقة المرعبة. الأخطاء: ${errors.join(', ')}. سؤال: ${userInput}` }] }
         ]
       });
-      setDebugChat(prev => [...prev, {role: 'model', text: response.text || "لا يوجد رد."}]);
+      setDebugChat(prev => [...prev, {role: 'model', text: response.text || "النظام لا يستجيب حالياً."}]);
     } catch (e: any) {
-      setDebugChat(prev => [...prev, {role: 'model', text: `خطأ: ${e.message}`}]);
+      setDebugChat(prev => [...prev, {role: 'model', text: `خطأ نظام: ${e.message}`}]);
     } finally {
       setIsDebugLoading(false);
     }
@@ -201,13 +208,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="relative z-10 space-y-12 text-center">
           <div className="space-y-2">
             <h2 className="text-5xl font-black text-[#00f3ff] italic tracking-tighter drop-shadow-[0_0_30px_#00f3ff]">دخول النظام</h2>
-            <p className="text-[10px] text-white/40 uppercase tracking-[0.5em]">بروتوكول البوابة الآمنة</p>
+            <p className="text-[10px] text-white/40 uppercase tracking-[0.5em]">بوابة المطور الآمنة</p>
           </div>
           <input 
             type="password" value={passcode} onChange={e => setPasscode(e.target.value)} 
             placeholder="••••••" className="bg-black/80 border-2 border-[#ffea00]/30 p-6 rounded-[2.5rem] text-center w-72 text-[#ffea00] font-black text-4xl outline-none focus:border-[#ffea00] shadow-[inset_0_0_30px_rgba(255,234,0,0.1)] transition-all"
           />
-          <button onClick={handleAuth} className="w-full bg-[#00f3ff] py-6 rounded-full font-black text-black text-xl shadow-[0_0_50px_rgba(0,243,255,0.4)] active:scale-95 transition-all uppercase">بدء التشغيل</button>
+          <button onClick={handleAuth} className="w-full bg-[#00f3ff] py-6 rounded-full font-black text-black text-xl shadow-[0_0_50px_rgba(0,243,255,0.4)] active:scale-95 transition-all uppercase">تشغيل المحرك</button>
         </div>
       </div>
     );
@@ -218,7 +225,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       <div className="h-20 border-b border-[#00f3ff]/20 flex items-center justify-between px-8 bg-black/90 backdrop-blur-3xl shadow-[0_4px_30px_rgba(0,243,255,0.1)]">
         <div className="flex items-center gap-4">
           <div className="w-3 h-3 bg-[#ffea00] rounded-full animate-ping shadow-[0_0_20px_#ffea00]"></div>
-          <h1 className="text-[14px] font-black text-[#00f3ff] uppercase tracking-[0.3em] italic">لوحة تحكم الحديقة المرعبة</h1>
+          <h1 className="text-[14px] font-black text-[#00f3ff] uppercase tracking-[0.3em] italic">إدارة الحديقة المرعبة</h1>
         </div>
         <button onClick={onClose} className="text-white/40 hover:text-[#ffea00] p-2 transition-colors duration-500">
           <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="3" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -229,7 +236,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {[
           { id: 'upload', label: 'حقن البيانات', color: 'text-[#00f3ff]', border: 'border-[#00f3ff]' },
           { id: 'settings', label: 'عقد الطاقة', color: 'text-[#ffea00]', border: 'border-[#ffea00]' },
-          { id: 'list', label: 'أرشيف الفوكسل', color: 'text-[#00f3ff]', border: 'border-[#00f3ff]' },
+          { id: 'list', label: 'أرشيف المحتوى', color: 'text-[#00f3ff]', border: 'border-[#00f3ff]' },
           { id: 'debug', label: 'تحليل الأخطاء', color: 'text-[#bc00ff]', border: 'border-[#bc00ff]' }
         ].map(tab => (
           <button 
@@ -251,8 +258,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <video ref={videoRef} src={previewUrl} className="w-full h-full object-contain" controls />
                     <button 
                       onClick={removeSelectedFile}
-                      className="absolute top-4 left-4 bg-red-600 text-white p-2 rounded-full shadow-[0_0_15px_red] z-50 hover:scale-110 active:scale-90 transition-all border-2 border-white/30"
-                      title="حذف واختيار فيديو آخر"
+                      className="absolute top-4 left-4 bg-red-600 text-white p-3 rounded-full shadow-[0_0_15px_red] z-[60] hover:scale-110 active:scale-90 transition-all border-2 border-white/30"
                     >
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="3" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
@@ -266,13 +272,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 )}
               </div>
               <div className="bg-black/60 p-6 rounded-[2.5rem] border border-white/10 flex flex-col shadow-2xl">
-                <h3 className="text-[11px] font-black text-[#ffea00] mb-6 uppercase italic tracking-[0.2em]">سجل التحليل الحي</h3>
+                <h3 className="text-[11px] font-black text-[#ffea00] mb-6 uppercase italic tracking-[0.2em]">سجل التحليل الذكي</h3>
                 <div className="flex-1 h-32 overflow-y-auto text-[10px] text-[#00f3ff]/80 font-mono space-y-2 leading-relaxed">
-                  {aiLogs.map((log, i) => <div key={i} className="border-l-2 border-[#00f3ff]/20 pl-3">{" >> "} {log}</div>)}
+                  {aiLogs.map((log, i) => <div key={i} className="border-l-2 border-[#00f3ff]/20 pl-3"> {" >> "} {log}</div>)}
                 </div>
                 {previewUrl && (
                   <button onClick={executeAiAnalysis} disabled={isAnalyzing} className="w-full bg-[#00f3ff]/10 py-4 rounded-2xl text-[10px] font-black mt-6 border-2 border-[#00f3ff]/30 text-[#00f3ff] hover:bg-[#00f3ff] hover:text-black transition-all">
-                    {isAnalyzing ? 'جاري التحليل...' : 'تشغيل المحلل الفائق'}
+                    {isAnalyzing ? 'جاري التحليل العميق...' : 'بدء التحليل الفائق'}
                   </button>
                 )}
               </div>
@@ -283,15 +289,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div className="space-y-3">
                   <div className="flex justify-between items-center px-4">
                     <label className="text-[10px] text-[#00f3ff] uppercase font-black tracking-widest">العنوان</label>
-                    <button 
-                      onClick={() => handleVoiceGeneration(uploadTitle, true)} 
-                      disabled={isGeneratingTitleVoice || !uploadTitle}
-                      className="text-[9px] text-[#00f3ff] bg-[#00f3ff]/10 px-3 py-1 rounded-lg border border-[#00f3ff]/30 font-black hover:bg-[#00f3ff] hover:text-black transition-all"
-                    >
-                      صوت العنوان
-                    </button>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => playLocalPreview(uploadTitle)} 
+                        className="text-[9px] px-3 py-1 rounded-lg border border-white/20 text-white font-black hover:bg-white/10 transition-all"
+                        title="تجربة القراءة المحلية"
+                      >
+                        قراءة
+                      </button>
+                      <button 
+                        onClick={() => handleVoiceGeneration(uploadTitle, true)} 
+                        disabled={isGeneratingTitleVoice || !uploadTitle} 
+                        className={`text-[9px] px-3 py-1 rounded-lg border font-black transition-all ${isGeneratingTitleVoice ? 'bg-gray-800 text-gray-400 border-gray-600' : 'bg-[#00f3ff]/10 text-[#00f3ff] border-[#00f3ff]/30 hover:bg-[#00f3ff] hover:text-black'}`}
+                      >
+                        {isGeneratingTitleVoice ? 'جاري..' : 'صوت نقي'}
+                      </button>
+                    </div>
                   </div>
-                  <input type="text" placeholder="العنوان..." value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} className="w-full bg-black border-2 border-white/10 p-5 rounded-[2rem] text-xs text-white outline-none focus:border-[#ffea00]" />
+                  <input type="text" placeholder="العنوان الدرامي..." value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} className="w-full bg-black border-2 border-white/10 p-5 rounded-[2rem] text-xs text-white outline-none focus:border-[#ffea00]" />
                 </div>
                 <div className="space-y-3">
                   <label className="text-[10px] text-[#00f3ff] pr-4 uppercase font-black tracking-widest">القطاع</label>
@@ -302,12 +317,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               <div className="space-y-4">
-                 <label className="text-[10px] text-[#00f3ff] pr-4 uppercase font-black tracking-widest">نوع الفيديو (تلقائي)</label>
+                 <label className="text-[10px] text-[#00f3ff] pr-4 uppercase font-black tracking-widest">نوع الفيديو (كشف تلقائي)</label>
                  <div className="flex gap-4">
-                   <div className={`flex-1 py-4 rounded-2xl font-black text-[10px] border-2 text-center transition-all ${videoType === 'short' ? 'bg-[#00f3ff] text-black border-white shadow-[0_0_15px_#00f3ff]' : 'bg-black text-[#00f3ff]/30 border-[#00f3ff]/10'}`}>
+                   <div className={`flex-1 py-4 rounded-2xl font-black text-[10px] border-2 text-center transition-all ${videoType === 'short' ? 'bg-[#00f3ff] text-black border-white shadow-[0_0_15px_#00f3ff]' : 'bg-black text-white/20 border-white/5'}`}>
                      قصير (Shorts)
                    </div>
-                   <div className={`flex-1 py-4 rounded-2xl font-black text-[10px] border-2 text-center transition-all ${videoType === 'long' ? 'bg-[#ffea00] text-black border-white shadow-[0_0_15px_#ffea00]' : 'bg-black text-[#ffea00]/30 border-[#ffea00]/10'}`}>
+                   <div className={`flex-1 py-4 rounded-2xl font-black text-[10px] border-2 text-center transition-all ${videoType === 'long' ? 'bg-[#ffea00] text-black border-white shadow-[0_0_15px_#ffea00]' : 'bg-black text-white/20 border-white/5'}`}>
                      طويل (Long)
                    </div>
                  </div>
@@ -316,46 +331,48 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="space-y-4">
                  <div className="flex justify-between items-center px-4">
                     <label className="text-[10px] text-[#00f3ff] uppercase font-black tracking-widest">منطق السرد</label>
-                    <button onClick={() => handleVoiceGeneration(uploadNarration, false)} disabled={isGeneratingVoice || !uploadNarration} className="text-[10px] text-[#ffea00] bg-[#ffea00]/10 px-5 py-2 rounded-xl border-2 border-[#ffea00]/30 font-black hover:bg-[#ffea00] hover:text-black transition-all">
-                      توليد صوت السرد
+                    <button onClick={() => handleVoiceGeneration(uploadNarration)} disabled={isGeneratingVoice || !uploadNarration} className={`text-[10px] px-5 py-2 rounded-xl border-2 font-black transition-all ${isGeneratingVoice ? 'bg-gray-800 text-gray-500 border-gray-700' : 'bg-[#ffea00]/10 text-[#ffea00] border-[#ffea00]/30 hover:bg-[#ffea00] hover:text-black'}`}>
+                      {isGeneratingVoice ? 'توليد..' : 'توليد صوت السرد الذكي'}
                     </button>
                  </div>
-                 <textarea value={uploadNarration} onChange={e => setUploadNarration(e.target.value)} className="w-full bg-black border-2 border-white/10 p-6 rounded-[2.5rem] h-32 text-xs italic text-white/60 outline-none focus:border-[#00f3ff]" />
+                 <textarea value={uploadNarration} onChange={e => setUploadNarration(e.target.value)} placeholder="السرد الدرامي للمقطع..." className="w-full bg-black border-2 border-white/10 p-6 rounded-[2.5rem] h-32 text-xs italic text-white/60 outline-none focus:border-[#00f3ff]" />
               </div>
               
               <button 
                 onClick={handlePublish} disabled={!selectedFile || isUploading} 
-                className={`w-full py-8 rounded-[3rem] font-black text-black text-xl shadow-[0_20px_60px_rgba(0,243,255,0.2)] transition-all ${!selectedFile || isUploading ? 'bg-neutral-900' : 'bg-[#00f3ff] border-2 border-white/20 hover:bg-[#ffea00] hover:text-black'}`}
+                className={`w-full py-8 rounded-[3rem] font-black text-black text-xl shadow-[0_20px_60px_rgba(0,243,255,0.2)] transition-all ${!selectedFile || isUploading ? 'bg-neutral-900 cursor-not-allowed' : 'bg-[#00f3ff] border-2 border-white/20 hover:bg-[#ffea00] hover:text-black'}`}
               >
                 {isUploading ? `جاري الحقن... (${uploadProgress}%)` : 'تنفيذ الرفع'}
               </button>
             </div>
           </div>
         )}
-        {/* باقي التبويبات تظل كما هي دون تغيير */}
+
         {activeTab === 'settings' && (
           <div className="max-w-2xl mx-auto space-y-8">
-            <h2 className="text-xl font-black text-[#ffea00] italic flex items-center gap-4 uppercase">عقد شبكة الحديقة المرعبة</h2>
+            <h2 className="text-xl font-black text-[#ffea00] italic flex items-center gap-4 uppercase">عقد الطاقة (ElevenLabs)</h2>
             {elevenKeys.map((key, index) => {
               const stats = keyStats[key];
               const remaining = stats ? stats.character_limit - stats.character_count : '...';
               return (
                 <div key={index} className="bg-[#050505] p-8 rounded-[3rem] border border-white/10 space-y-4 shadow-xl">
                   <div className="flex justify-between items-center">
-                    <span className="text-[11px] font-black text-[#00f3ff] uppercase">مفتاح الصوت الذكي {index + 1}</span>
+                    <span className="text-[11px] font-black text-[#00f3ff] uppercase">مفتاح الصوت {index + 1}</span>
                     <span className="text-[12px] font-black text-[#ffea00] italic">المتبقي: {remaining} حرف</span>
                   </div>
                   <input type="password" value={key} onChange={e => {
                     const n = [...elevenKeys]; n[index] = e.target.value; setElevenKeys(n);
+                    localStorage.setItem('admin_eleven_keys_v2', JSON.stringify(n));
                   }} className="w-full bg-black border-2 border-white/5 p-5 rounded-2xl text-[10px] text-white outline-none focus:border-[#ffea00]" />
                 </div>
               );
             })}
           </div>
         )}
+
         {activeTab === 'list' && (
           <div className="max-w-2xl mx-auto space-y-6">
-             <h3 className="text-lg font-black text-[#ffea00] italic px-4 uppercase tracking-widest">الأرشيف العصبي للحديقة ({vaultVideos.length})</h3>
+             <h3 className="text-lg font-black text-[#ffea00] italic px-4 uppercase tracking-widest">أرشيف الحديقة ({vaultVideos.length})</h3>
              {vaultVideos.map(v => (
                <div key={v.id} className="bg-[#050505] p-5 rounded-[2.5rem] border border-white/10 flex items-center gap-6 shadow-xl group hover:border-[#00f3ff]/40 transition-all">
                   <div className="w-24 h-16 bg-black rounded-2xl overflow-hidden shrink-0 border border-white/5 relative">
@@ -366,32 +383,44 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                      <p className="text-[10px] text-[#00f3ff] font-black uppercase mt-1 tracking-widest">{v.category}</p>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => handleEditVideo(v)} className="p-4 text-[#ffea00] bg-[#ffea00]/10 border border-[#ffea00]/20 rounded-2xl hover:bg-[#ffea00] hover:text-black transition-all shadow-lg font-black text-[11px]">تعديل</button>
-                    <button className="p-4 text-red-500 bg-red-500/10 border border-red-500/20 rounded-2xl hover:bg-red-500 hover:text-white shadow-lg text-[11px] font-black">حذف</button>
+                    <button onClick={() => handleEditVideo(v)} className="p-4 text-[#ffea00] bg-[#ffea00]/10 border border-[#ffea00]/20 rounded-2xl hover:bg-[#ffea00] hover:text-black transition-all shadow-lg font-black text-[11px]">
+                       تعديل
+                    </button>
+                    <button className="p-4 text-red-500 bg-red-500/10 border border-red-500/20 rounded-2xl hover:bg-red-500 hover:text-white shadow-lg text-[11px] font-black">
+                       حذف
+                    </button>
                   </div>
                </div>
              ))}
           </div>
         )}
+
         {activeTab === 'debug' && (
           <div className="max-w-2xl mx-auto space-y-8">
              <div className="bg-[#00f3ff]/10 p-6 rounded-[2.5rem] border border-[#00f3ff]/30">
-                <h3 className="text-[#ffea00] font-black text-sm mb-4 uppercase italic tracking-widest">سجل أخطاء الحديقة المرعبة</h3>
+                <h3 className="text-[#ffea00] font-black text-sm mb-4 uppercase italic tracking-widest">سجل أخطاء النظام</h3>
                 <div className="h-32 overflow-y-auto bg-black/60 rounded-xl p-4 font-mono text-[10px] text-[#00f3ff] space-y-2">
-                   {errors.length > 0 ? errors.map((err, i) => <div key={i}>{">> "} {err}</div>) : "بوابة الحديقة مستقرة بالكامل."}
+                   {errors.length > 0 ? errors.map((err, i) => <div key={i}>{">> "} {err}</div>) : "جميع البوابات مستقرة."}
                 </div>
              </div>
+
              <div className="flex flex-col h-[50dvh] bg-black/90 border border-white/5 rounded-[3rem] overflow-hidden shadow-2xl">
                 <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-hide">
-                   <div className="text-[10px] text-gray-500 font-black text-center uppercase tracking-widest">Horror Garden Debug Console</div>
+                   <div className="text-[10px] text-gray-500 font-black text-center uppercase tracking-widest">Debug Console</div>
                    {debugChat.map((msg, i) => (
                      <div key={i} className={`flex ${msg.role === 'user' ? 'justify-start' : 'justify-end'}`}>
-                        <div className={`max-w-[80%] p-4 rounded-2xl text-xs font-black ${msg.role === 'user' ? 'bg-[#00f3ff]/10 text-[#00f3ff] border border-[#00f3ff]/20' : 'bg-[#ffea00]/10 text-[#ffea00] border border-[#ffea00]/20'}`}>{msg.text}</div>
+                        <div className={`max-w-[80%] p-4 rounded-2xl text-xs font-black ${msg.role === 'user' ? 'bg-[#00f3ff]/10 text-[#00f3ff] border border-[#00f3ff]/20' : 'bg-[#ffea00]/10 text-[#ffea00] border border-[#ffea00]/20'}`}>
+                           {msg.text}
+                        </div>
                      </div>
                    ))}
                 </div>
                 <div className="p-4 bg-black border-t border-white/10 flex gap-2">
-                   <input type="text" value={debugInput} onChange={e => setDebugInput(e.target.value)} placeholder="اسأل حارس الحديقة الذكي..." className="flex-1 bg-white/5 border border-white/10 rounded-2xl p-4 text-xs text-white outline-none focus:border-[#00f3ff]" />
+                   <input 
+                     type="text" value={debugInput} onChange={e => setDebugInput(e.target.value)}
+                     placeholder="اسأل المحلل الذكي عن مشكلة..." 
+                     className="flex-1 bg-white/5 border border-white/10 rounded-2xl p-4 text-xs text-white outline-none focus:border-[#00f3ff]"
+                   />
                    <button onClick={handleTalkToGemini} className="px-6 bg-[#00f3ff] text-black rounded-2xl font-black text-xs hover:bg-[#ffea00] transition-colors uppercase">تحليل</button>
                 </div>
              </div>

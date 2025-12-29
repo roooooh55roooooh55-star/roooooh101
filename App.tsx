@@ -17,7 +17,6 @@ const HiddenVideosPage = lazy(() => import('./HiddenVideosPage.tsx'));
 const CategoryPage = lazy(() => import('./CategoryPage.tsx'));
 const OfflinePage = lazy(() => import('./OfflinePage.tsx'));
 
-// القائمة الرسمية المعتمدة (يمنع تغيير حرف واحد لضمان عمل البوت)
 export const OFFICIAL_CATEGORIES = [
   'هجمات مرعبة',
   'رعب حقيقي',
@@ -62,15 +61,23 @@ const App: React.FC = () => {
   };
 
   const silentSync = useCallback(async () => {
+    setIsSyncing(true);
     try {
       const data = await fetchChannelVideos();
       if (data && data.length > 0) {
         const deletedIds = JSON.parse(localStorage.getItem('al-hadiqa-deleted-ids') || '[]');
-        const filtered = data.filter(v => !deletedIds.includes(v.id));
+        // فلترة الفيديوهات التي تحمل تصنيف "عام" (Category: General) كما طلب المستخدم
+        const filtered = data.filter(v => 
+          !deletedIds.includes(v.id) && 
+          v.category !== 'عام' && 
+          v.category !== 'General'
+        );
         setRawVideos(filtered);
       }
     } catch (err) {
-      // مزامنة صامتة
+      setSystemErrors(prev => [...new Set([...prev, "خطأ مزامنة تليجرام: تحقق من اتصال البوت"])]);
+    } finally {
+      setIsSyncing(false);
     }
   }, []);
 
@@ -92,7 +99,8 @@ const App: React.FC = () => {
 
   useEffect(() => {
     silentSync();
-    const syncInterval = setInterval(silentSync, 30000); // تحديث كل 30 ثانية حسب طلب المستخدم
+    // تفعيل الـ Polling كل 30 ثانية لضمان جلب التحديثات فوراً من تليجرام
+    const syncInterval = setInterval(silentSync, 30000); 
     return () => clearInterval(syncInterval);
   }, [silentSync]);
 
