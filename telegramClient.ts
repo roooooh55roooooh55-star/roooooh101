@@ -7,7 +7,7 @@ const CHANNEL_ID = "-1003563010631";
 const urlCache = new Map<string, {url: string, expiry: number}>();
 
 /**
- * جلب رابط فيديو مباشر متجدد
+ * جلب رابط فيديو مباشر متجدد من تليجرام
  */
 export const getDirectVideoUrl = async (fileId: string): Promise<string | null> => {
   if (!fileId) return null;
@@ -31,40 +31,48 @@ export const getDirectVideoUrl = async (fileId: string): Promise<string | null> 
 };
 
 /**
- * جلب الفيديوهات مع نظام "المسح الشامل" لضمان عدم فقدان التاريخ
- * ملاحظة: Bot API يجلب التحديثات الجديدة، ولكننا نعزز الحفظ الدائم في المتصفح
+ * دالة مساعدة لفك ترميز النصوص وضمان التعامل الصحيح مع الحروف العربية
+ */
+const decodeTelegramText = (text: string): string => {
+  try {
+    return decodeURIComponent(JSON.parse(`"${text.replace(/"/g, '\\"')}"`));
+  } catch (e) {
+    return text;
+  }
+};
+
+/**
+ * جلب الفيديوهات مع دعم channel_post ونظام الأرشفة الذكي
  */
 export const fetchChannelVideos = async (): Promise<Video[]> => {
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    // جلب آخر التحديثات من البوت
-    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=-1&limit=100`, {
-      signal: controller.signal
-    });
+    // جلب آخر 100 تحديث من البوت
+    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=-1&limit=100`);
     
-    clearTimeout(timeoutId);
-
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    if (!response.ok) throw new Error(`Telegram API Error: ${response.status}`);
     const data = await response.json();
     
     const newFetchedVideos: Video[] = [];
 
     if (data.ok && data.result) {
       data.result.forEach((item: any) => {
+        // دعم منشورات القنوات (channel_post) والرسائل العادية
         const msg = item.channel_post || item.message;
-        if (msg && (msg.video || (msg.document && msg.document.mime_type?.includes('video')))) {
+        if (!msg) return;
+
+        const isVideo = msg.video || (msg.document && msg.document.mime_type?.includes('video'));
+        if (isVideo) {
           const videoData = msg.video || msg.document;
-          const caption = msg.caption || "";
+          const caption = msg.caption ? decodeTelegramText(msg.caption) : "";
           
+          // استخراج البيانات باستخدام Regex مرن
           const categoryMatch = caption.match(/\[التصنيف:\s*(.*?)\]/);
           const titleMatch = caption.match(/\[العنوان:\s*(.*?)\]/);
           const narrationMatch = caption.match(/\[السرد:\s*(.*?)\]/);
           const typeMatch = caption.match(/\[النوع:\s*(.*?)\]/);
 
           const category = categoryMatch ? categoryMatch[1].trim() : "أهوال مرعبة";
-          const title = titleMatch ? titleMatch[1].trim() : "كابوس غامض";
+          const title = titleMatch ? titleMatch[1].trim() : "كابوس من الحديقة";
           const narration = narrationMatch ? narrationMatch[1].trim() : "";
           const typeTag = typeMatch ? typeMatch[1].trim() : null;
           
@@ -73,7 +81,7 @@ export const fetchChannelVideos = async (): Promise<Video[]> => {
           newFetchedVideos.push({
             id: fileId,
             public_id: videoData.file_unique_id,
-            video_url: "", 
+            video_url: "", // سيتم جلبه عند التشغيل لتوفير الموارد
             telegram_file_id: fileId,
             title: title,
             category: category,
@@ -87,24 +95,26 @@ export const fetchChannelVideos = async (): Promise<Video[]> => {
       });
     }
 
-    // دمج البيانات مع "الأرشيف العصبي الدائم" المخزن محلياً
-    const savedVaultRaw = localStorage.getItem('horror_vault_permanent_v3');
+    // دمج النتائج الجديدة مع الأرشيف المحلي لضمان عدم فقدان أي فيديو قديم
+    const savedVaultRaw = localStorage.getItem('horror_vault_permanent_v4');
     const savedVault: Video[] = savedVaultRaw ? JSON.parse(savedVaultRaw) : [];
     
     const uniqueMap = new Map<string, Video>();
     
-    // الأولوية دائماً للأرشيف لضمان عدم فقدان الـ 5000 فيديو التي تم سحبها مسبقاً
+    // إضافة الفيديوهات القديمة أولاً
     savedVault.forEach(v => uniqueMap.set(v.id, v));
+    // إضافة الفيديوهات الجديدة (ستقوم بتحديث القديمة إذا وجد تكرار)
     newFetchedVideos.forEach(v => uniqueMap.set(v.id, v));
 
     const finalVideos = Array.from(uniqueMap.values())
       .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 
-    // تحديث الأرشيف المحلي
-    localStorage.setItem('horror_vault_permanent_v3', JSON.stringify(finalVideos));
+    // حفظ الأرشيف المحدث
+    localStorage.setItem('horror_vault_permanent_v4', JSON.stringify(finalVideos));
     return finalVideos;
   } catch (error) {
-    const cached = localStorage.getItem('horror_vault_permanent_v3');
+    console.error("Fetch Error:", error);
+    const cached = localStorage.getItem('horror_vault_permanent_v4');
     return cached ? JSON.parse(cached) : [];
   }
 };

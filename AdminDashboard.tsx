@@ -29,7 +29,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     ];
   });
   const [keyStats, setKeyStats] = useState<{[key: string]: SubscriptionInfo | null}>({});
-  const [voiceId, setVoiceId] = useState(localStorage.getItem('admin_voice_id') || 'EXAVIT9mxu1B8L2Kx57H');
+  // استخدام معرف صوت 'Adam' الافتراضي كونه أكثر استقراراً
+  const [voiceId, setVoiceId] = useState(localStorage.getItem('admin_voice_id') || 'pNInz6obpgDQGcFmaJgB');
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -354,10 +355,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {elevenKeys.map((key, index) => {
               const stats = keyStats[key];
               const remaining = stats ? stats.character_limit - stats.character_count : '...';
+              const lastIndex = parseInt(localStorage.getItem('eleven_labs_active_index') || '0');
+              const isActive = index === lastIndex;
+
               return (
-                <div key={index} className="bg-[#050505] p-8 rounded-[3rem] border border-white/10 space-y-4 shadow-xl">
+                <div key={index} className={`bg-[#050505] p-8 rounded-[3rem] border transition-all shadow-xl ${isActive ? 'border-[#00f3ff] shadow-[0_0_20px_rgba(0,243,255,0.2)]' : 'border-white/10'} space-y-4`}>
                   <div className="flex justify-between items-center">
-                    <span className="text-[11px] font-black text-[#00f3ff] uppercase">مفتاح الصوت {index + 1}</span>
+                    <div className="flex items-center gap-2">
+                       <span className={`text-[11px] font-black uppercase ${isActive ? 'text-[#00f3ff]' : 'text-white/40'}`}>مفتاح الصوت {index + 1}</span>
+                       {isActive && <span className="bg-[#00f3ff] text-black text-[7px] px-2 py-0.5 rounded-full font-black animate-pulse">نشط الآن</span>}
+                    </div>
                     <span className="text-[12px] font-black text-[#ffea00] italic">المتبقي: {remaining} حرف</span>
                   </div>
                   <input type="password" value={key} onChange={e => {
@@ -400,7 +407,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
              <div className="bg-[#00f3ff]/10 p-6 rounded-[2.5rem] border border-[#00f3ff]/30">
                 <h3 className="text-[#ffea00] font-black text-sm mb-4 uppercase italic tracking-widest">سجل أخطاء النظام</h3>
                 <div className="h-32 overflow-y-auto bg-black/60 rounded-xl p-4 font-mono text-[10px] text-[#00f3ff] space-y-2">
-                   {errors.length > 0 ? errors.map((err, i) => <div key={i}>{">> "} {err}</div>) : "جميع البوابات مستقرة."}
+                   {errors.length > 0 ? errors.map((err, i) => <div key={i}>{" >> "} {err}</div>) : "جميع البوابات مستقرة."}
                 </div>
              </div>
 

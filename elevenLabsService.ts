@@ -1,6 +1,6 @@
 
 /**
- * خدمة ElevenLabs المحدثة مع دعم تدوير المفاتيح المتقدم
+ * خدمة ElevenLabs المتقدمة مع نظام تدوير المفاتيح الذكي
  */
 
 export interface SubscriptionInfo {
@@ -16,6 +16,7 @@ export async function getSubscriptionInfo(apiKey: string): Promise<SubscriptionI
       method: 'GET',
       headers: {
         'xi-api-key': apiKey,
+        'Accept': 'application/json',
       },
     });
     if (!response.ok) return null;
@@ -27,16 +28,24 @@ export async function getSubscriptionInfo(apiKey: string): Promise<SubscriptionI
 }
 
 /**
- * دالة توليد الصوت مع دعم التبديل التلقائي بين المفاتيح في حال فشل أحدها
- * تم تحسين الرؤوس (Headers) لضمان التوافق مع Netlify
+ * دالة توليد الصوت مع دعم التناوب المتسلسل (Sequential Rotation)
+ * تقوم بحفظ آخر مفتاح ناجح لتبدأ منه في المرة القادمة، مما يسرع العملية جداً
  */
 export async function generateSpeech(text: string, apiKeys: string[], voiceId: string): Promise<string | null> {
   if (!apiKeys || apiKeys.length === 0 || !text) return null;
 
-  // تنظيف النص لضمان عدم وجود أحرف غريبة قد تسبب فشل الطلب
+  // تنظيف النص لضمان استقرار الخدمة
   const cleanText = text.replace(/[\n\r]/g, ' ').trim();
 
-  for (const key of apiKeys) {
+  // الحصول على فهرس آخر مفتاح كان يعمل من الذاكرة المحلية
+  let startIndex = parseInt(localStorage.getItem('eleven_labs_active_index') || '0');
+  if (startIndex >= apiKeys.length) startIndex = 0;
+
+  // محاولة المرور على كل المفاتيح بدءاً من المفتاح الذي كان يعمل
+  for (let i = 0; i < apiKeys.length; i++) {
+    const currentIndex = (startIndex + i) % apiKeys.length;
+    const key = apiKeys[currentIndex];
+    
     if (!key) continue;
     
     try {
@@ -58,22 +67,27 @@ export async function generateSpeech(text: string, apiKeys: string[], voiceId: s
       });
 
       if (response.ok) {
+        // إذا نجح المفتاح، نقوم بحفظ الفهرس الخاص به ليكون هو الأول في المحاولة القادمة
+        localStorage.setItem('eleven_labs_active_index', currentIndex.toString());
         const blob = await response.blob();
         return URL.createObjectURL(blob);
       }
       
-      // في حال نفاذ المفتاح (429 أو 401)، ننتقل للمفتاح التالي
+      // إذا كان المفتاح مستهلك (429) أو غير صالح (401)
       if (response.status === 429 || response.status === 401) {
-        console.warn(`Key rotation: Key ${key.substring(0, 6)}... is exhausted or invalid. Switching...`);
+        console.warn(`Key Rotation: Key at index ${currentIndex} is exhausted/invalid. Trying next...`);
+        // نستمر في الحلقة لتجربة المفتاح التالي
         continue;
       }
       
-      const errorData = await response.json().catch(() => ({}));
-      console.error(`ElevenLabs Error: ${response.status}`, errorData);
+      const errorText = await response.text();
+      console.error(`ElevenLabs Error ${response.status}:`, errorText);
     } catch (error) {
       console.error(`ElevenLabs Network Error:`, error);
     }
   }
 
+  // إذا وصلنا إلى هنا، فهذا يعني أن جميع المفاتيح فشلت
+  console.error("Critical: All ElevenLabs keys are exhausted or invalid.");
   return null;
 }

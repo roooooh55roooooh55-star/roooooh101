@@ -66,7 +66,7 @@ const App: React.FC = () => {
       const data = await fetchChannelVideos();
       if (data && data.length > 0) {
         const deletedIds = JSON.parse(localStorage.getItem('al-hadiqa-deleted-ids') || '[]');
-        // فلترة الفيديوهات التي تحمل تصنيف "عام" (Category: General) كما طلب المستخدم
+        // فلترة الفيديوهات التي تحمل تصنيف "عام" (Category: General) لضمان جودة المحتوى
         const filtered = data.filter(v => 
           !deletedIds.includes(v.id) && 
           v.category !== 'عام' && 
@@ -99,7 +99,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     silentSync();
-    // تفعيل الـ Polling كل 30 ثانية لضمان جلب التحديثات فوراً من تليجرام
+    // تفعيل Polling كل 30 ثانية لضمان جلب التحديثات فوراً وبقاء القائمة حية
     const syncInterval = setInterval(silentSync, 30000); 
     return () => clearInterval(syncInterval);
   }, [silentSync]);

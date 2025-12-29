@@ -40,8 +40,9 @@ const ShortsPlayerOverlay: React.FC<ShortsPlayerOverlayProps> = ({
 
   const getElevenConfig = () => {
     const keys = JSON.parse(localStorage.getItem('admin_eleven_keys_v2') || '[]');
-    const voiceId = localStorage.getItem('admin_voice_id') || '21m00Tcm4TlvDq8ikWAM'; 
-    return { key: keys[0], voiceId };
+    // استخدام معرف صوت 'Adam' الافتراضي كونه أكثر استقراراً
+    const voiceId = localStorage.getItem('admin_voice_id') || 'pNInz6obpgDQGcFmaJgB'; 
+    return { key: keys, voiceId };
   };
 
   const stopAudio = () => {
@@ -56,7 +57,7 @@ const ShortsPlayerOverlay: React.FC<ShortsPlayerOverlayProps> = ({
     stopAudio();
     if (isMuted || !text) return;
     const { key, voiceId } = getElevenConfig();
-    if (!key) return;
+    if (!key || key.length === 0) return;
     try {
       const audioUrl = await generateSpeech(text, key, voiceId);
       if (audioUrl) {

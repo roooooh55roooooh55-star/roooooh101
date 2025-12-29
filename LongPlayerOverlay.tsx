@@ -36,8 +36,9 @@ const LongPlayerOverlay: React.FC<LongPlayerOverlayProps> = ({
 
   const getElevenConfig = () => {
     const keys = JSON.parse(localStorage.getItem('admin_eleven_keys_v2') || '[]');
-    const voiceId = localStorage.getItem('admin_voice_id') || 'EXAVIT9mxu1B8L2Kx57H';
-    return { key: keys[0], voiceId };
+    // استخدام معرف صوت 'Adam' الافتراضي كونه أكثر استقراراً
+    const voiceId = localStorage.getItem('admin_voice_id') || 'pNInz6obpgDQGcFmaJgB';
+    return { key: keys, voiceId };
   };
 
   const stopAudio = () => {
@@ -52,7 +53,7 @@ const LongPlayerOverlay: React.FC<LongPlayerOverlayProps> = ({
     stopAudio();
     if (isMuted || !text) return;
     const { key, voiceId } = getElevenConfig();
-    if (!key) return;
+    if (!key || key.length === 0) return;
     try {
       const audioUrl = await generateSpeech(text, key, voiceId);
       if (audioUrl) {
